@@ -25,7 +25,7 @@ jobs:
       - name: Install Mintlify CLI
         run: npm i -g mintlify
       - name: Build static site
-        run: mint export --output site.zip
+        run: mintlify export --output site.zip
       - name: Unzip to dist
         run: unzip -o site.zip -d dist
       - name: Upload Pages artifact
