@@ -1,0 +1,241 @@
+---
+title: "Entity commands"
+---
+
+## Sources
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>entities</h3>
+</div>
+<div style="text-align: right;">
+
+`[none] -> IEnumerable<EntityUid>`
+</div>
+</div>
+Returns a list of all entities in the simulation.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>ent &lt;entity&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`[none] -> EntityUid`
+</div>
+</div>
+Returns the given entity.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>spawn:at &lt;entity prototype&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityCoordinates> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Spawns a new entity at the given coordinates.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>spawn:on &lt;entity prototype&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Spawns a new entity on the other given entity.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>spawn:attached &lt;entity prototype&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Spawns a new entity attached to the other given entity.
+
+## Filters
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>with &lt;component type&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Filters the input for entities with some given component.
+This command can be inverted with `not`.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>prototyped &lt;prototype&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Filters the input for entities built from a given prototype.
+This command can be inverted with `not`.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>paused</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Filters the input for entities that are currently paused.
+This command can be inverted with `not`.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>nearby &lt;range&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Filters for entities nearby the inputs, returning all entities within range of it.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>named &lt;name&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Filters the input for entities with a name matching the regex `$regex^`.
+
+## Transforms
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>comp:has &lt;component type&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<bool>`
+</div>
+</div>
+Returns true if the input entity has the given component, otherwise false.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>pos</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityCoordinates>`
+</div>
+</div>
+Returns the coordinates of the input entities, relative to their parent.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>mappos</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityCoordinates>`
+</div>
+</div>
+Returns the coordinates of the input entities, relative to the map.
+
+## Mutators
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>delete</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable<EntityUid> -> [none]`
+</div>
+</div>
+Deletes the inputs from the simulation. Gone. Poof.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>replace &lt;entity prototype&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Replaces the given entities with another of some prototype, preserving only it's position and rotation.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>tp:coords &lt;entity coordinates&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Teleports the input to the given coordinates.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>tp:to &lt;entity&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Teleports the input to the given entity.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>tp:into &lt;entity&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Teleports the input into the given entity.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>comp:add &lt;component type&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Adds the given component to the entity.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>comp:ensure &lt;component type&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Ensures the input has the given component.
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h3>comp:rm &lt;component type&gt;</h3>
+</div>
+<div style="text-align: right;">
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Removes the given component from the entity.

@@ -12,7 +12,7 @@ REPO_ROOT = Path.cwd()
 
 # Folders to check
 DOCS_DIRS = [
-    REPO_ROOT / r"src/en",
+    REPO_ROOT / r"en",
 ]
 
 # Configure allowed hosts (empty = only relative paths allowed)
@@ -33,10 +33,10 @@ def main() -> int:
 	docs = []
 	
 	for docs_dir in DOCS_DIRS:
-		for md_file in docs_dir.rglob("*.md"):
+		for md_file in docs_dir.rglob("*.mdx"):
 			docs.append(md_file)
 	
-	print(f"found {len(docs)} .md files")
+	print(f"found {len(docs)} .mdx files")
 
 	errors = []
 	

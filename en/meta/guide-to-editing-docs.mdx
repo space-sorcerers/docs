@@ -1,0 +1,66 @@
+---
+title: "Guide to Editing Docs"
+---
+
+
+Hello! As you may be able to notice, this docs site is completely open source and free to edit on GitHub. You can see the GitHub page for this site at [https://github.com/space-sorcerers/docs](https://github.com/space-sorcerers/docs).
+
+There are a couple things to keep in mind when contributing. While we disallow web-edit PRs (those made exclusively on GitHub) on the main Space Station 14 & Robust Toolbox repos, that is not the case here. **Web-editing is encouraged** to make editing documentation as painless as possible.
+
+If you want to get an idea of what features are at your disposal when writing documentation, go to our [Docs Example Page](./docs-example-page).
+
+## Style
+
+Documentation should be written in a [technical communications style](https://ohiostate.pressbooks.pub/feptechcomm/chapter/3-writing-style/). Effective technical communications are [concise, precise, direct, and well organized](https://ohiostate.pressbooks.pub/feptechcomm/chapter/3-writing-style/) and should be written in an appropriate [voice and tone](https://ohiostate.pressbooks.pub/feptechcomm/chapter/3-1-voice-tone/) using [correct mechanics and grammar](https://ohiostate.pressbooks.pub/feptechcomm/chapter/3-2-mechanics-grammar/), citing relevant sources where needed.
+
+## Making basic edits
+
+If you just want to make a basic edit of a page, simply follow these steps—you don't need any of the fancy stuff talked about later:
+
+1. Create an account on GitHub, or log in if you already have one.
+
+2. Fork the [space-sorcerers/docs](https://github.com/space-sorcerers/docs) repo on GitHub.
+
+![](/images/meta-create-fork.png)
+
+3. Click the 'View & Edit Page on GitHub' icon in the very top right of any page on this site.
+
+![](/images/meta-edit-page-button.png)
+
+4. Click the 'Edit this file' button at the top right of the file view.
+
+![](/images/meta-edit-file.png)
+
+5. Make your changes, then commit & create a pull request! We'll handle the rest.
+
+## Building locally
+
+Install the Mintlify CLI:
+
+```bash
+npm i -g mint
+```
+
+Then run the dev server from the project root:
+
+```bash
+mint dev
+```
+
+This will start a local preview at `http://localhost:3000` with hot reload.
+
+## Testing changes
+
+If you've made a PR, the easiest way to test your changes is to view them in GitHub's markdown viewer in the `Files changed` tab. You can also use a local markdown previewer extension for something like [VSCode](https://marketplace.visualstudio.com/items?itemName=shd101wyy.markdown-preview-enhanced).
+
+For an authentic preview, every PR will have a Mintlify preview deployment automatically. You can find the link in the PR checks section.
+
+## Review
+
+Maintainers will review pull requests for documentation for content and [style](#style). Maintainers understand that many contributors do not speak English as a native language and will be helpful with their review comments.
+
+To help make best use of maintainers' review time, before submitting please:
+
+- Proofread your changes
+- Use a spell checker
+- Consider using grammar review tools like [Grammarly](https://www.grammarly.com/)
