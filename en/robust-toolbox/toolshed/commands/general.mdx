@@ -4,22 +4,22 @@ title: "General"
 
 
 ## Sources
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>iota</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `T -> IEnumerable<T> where T: INumber<T>`
 </div>
 </div>
 Returns <code>1..N</code>
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>to &lt;dest&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `T -> IEnumerable<T> where T: INumber<T>`
 </div>
@@ -27,66 +27,66 @@ Returns <code>1..N</code>
 Returns <code>N..M</code>
 
 ## Filters
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>where &lt;block (T -> bool)&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Filters the input by the provided code block.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>unique</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Filters the input by uniqueness, eliminating duplicate values.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>take &lt;amount&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Removes N values from the input, discarding the rest.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>select &lt;quantity&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Removes a quantity (amount or percentage) of values from the input randomly, discarding the rest.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>sort</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Sorts the input from least to greatest.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>sortby &lt;block (T -> TOrd)&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
@@ -97,44 +97,44 @@ Sorts the input from least to greatest using the given ordering value.
     entities sortby { allcomps count }
 ```
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>sortmapby &lt;block (T -> TOrd)&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Sorts the input from least to greatest using the given ordering value, returning the ordering values.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>sortdown</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Sorts the input from greatest to least.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>sortdownby &lt;block (T -> TOrd)&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Sorts the input from greatest to least using the given ordering value.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>sortmapdownby &lt;block (T -> TOrd)&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
@@ -142,11 +142,11 @@ Sorts the input from greatest to least using the given ordering value.
 Sorts the input from greatest to least using the given ordering value, returning the ordering values.
 
 ## Transforms
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>isempty</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> bool`
 </div>
@@ -154,11 +154,11 @@ Sorts the input from greatest to least using the given ordering value, returning
 Returns true if the input is empty, otherwise false.
 This command can be inverted with `not`.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>isnull</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `object? -> bool`
 </div>
@@ -166,33 +166,33 @@ This command can be inverted with `not`.
 Returns true if the input is null, otherwise false.
 This command can be inverted with `not`.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>count</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> int`
 </div>
 </div>
 Counts the number of values in the input.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>iterate &lt;block (T -> T)&gt; &lt;times&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IEnumerable<T>`
 </div>
 </div>
 Repeats the given code block N times over it's own output, effectively `f(f(...N f(x)))`
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>first</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> T`
 </div>
@@ -201,44 +201,44 @@ Returns the first value in the input, or errors if there isn't one.
 
 
 ## Mutators
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>rep &lt;amount&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `T -> IEnumerable<T>`
 </div>
 </div>
 Repeats the input value N times.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>bin</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<T> -> IDictionary<T, int>`
 </div>
 </div>
 Counts the number of times each unique instance of T occurs in the input, returning a dictionary of unique instance : count.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>map &lt;block (TIn -> TOut)&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<TIn> -> IEnumerable<TOut>`
 </div>
 </div>
 Applies the given code block to each element of the input.
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
 <div>
 <h3>reduce &lt;block (T -> T)&gt;</h3>
 </div>
-<div style="text-align: right;">
+<div style={{textAlign: "right"}}>
 
 `IEnumerable<TIn> -> T`
 </div>
