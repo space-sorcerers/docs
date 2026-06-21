@@ -121,68 +121,68 @@ Overlay применяет шейдер ко всему экрану или ок
 
 Overlay'и расширяют Overlay, например:
 
-`csharp
-    public sealed class BlindOverlay : Overlay
+```csharp
+public sealed class BlindOverlay : Overlay
+{
+    [Dependency] private readonly IPrototypeManager _prototypeManager = default!;
+
+    // Установите true, чтобы получить ScreenTexture. В противном случае он будет null.
+    public override bool RequestScreenTexture => true;
+    
+    // Должен быть установлен соответствующий слой overlay.
+    public override OverlaySpace Space => OverlaySpace.WorldSpace;
+    
+    // Храним ссылки на шейдеры.
+    private readonly ShaderInstance _greyscaleShader;
+    private readonly ShaderInstance _circleMaskShader;
+
+    public BlindOverlay()
     {
-        [Dependency] private readonly IPrototypeManager _prototypeManager = default!;
-
-        // Установите true, чтобы получить ScreenTexture. В противном случае он будет null.
-        public override bool RequestScreenTexture => true;
-        
-        // Должен быть установлен соответствующий слой overlay.
-        public override OverlaySpace Space => OverlaySpace.WorldSpace;
-        
-        // Храним ссылки на шейдеры.
-        private readonly ShaderInstance _greyscaleShader;
-        private readonly ShaderInstance _circleMaskShader;
-
-        public BlindOverlay()
-        {
-            IoCManager.InjectDependencies(this);
-            // Загружаем шейдеры из прототипов
-            _greyscaleShader = _prototypeManager.Index<ShaderPrototype>("GreyscaleFullscreen").InstanceUnique();
-            _circleMaskShader = _prototypeManager.Index<ShaderPrototype>("CircleMask").InstanceUnique();
-        }
-        
-        protected override bool BeforeDraw(in OverlayDrawArgs args)
-        {
-            // Если возвращает true, этот шейдер будет отрисован. Если этот
-            // метод не переопределён, по умолчанию возвращается true,
-            // т.е. шейдер всегда активен для всех.
-        }
-        
-        protected override void Draw(in OverlayDrawArgs args)
-        {
-            // Если вашему шейдеру нужны входные данные (пиксели, currently на экране),
-            // вы должны проверить, что они не null, и передать их в шейдер.
-            if (ScreenTexture == null)
-                return;
-                
-            _greyscaleShader?.SetParameter("SCREEN_TEXTURE", ScreenTexture);
-            
-            var handle = args.WorldHandle;
-            var viewport = args.WorldBounds;
-            // Рисуем шейдер оттенков серого
-            handle.UseShader(_greyscaleShader);
-            handle.DrawRect(viewport, Color.White);
-            // Рисуем шейдер круговой маски
-            handle.UseShader(_circleMaskShader);
-            handle.DrawRect(viewport, Color.White);
-            // Прекращаем использование шейдера
-            handle.UseShader(null);
-        }
+        IoCManager.InjectDependencies(this);
+        // Загружаем шейдеры из прототипов
+        _greyscaleShader = _prototypeManager.Index<ShaderPrototype>("GreyscaleFullscreen").InstanceUnique();
+        _circleMaskShader = _prototypeManager.Index<ShaderPrototype>("CircleMask").InstanceUnique();
     }
-`
+    
+    protected override bool BeforeDraw(in OverlayDrawArgs args)
+    {
+        // Если возвращает true, этот шейдер будет отрисован. Если этот
+        // метод не переопределён, по умолчанию возвращается true,
+        // т.е. шейдер всегда активен для всех.
+    }
+    
+    protected override void Draw(in OverlayDrawArgs args)
+    {
+        // Если вашему шейдеру нужны входные данные (пиксели, currently на экране),
+        // вы должны проверить, что они не null, и передать их в шейдер.
+        if (ScreenTexture == null)
+            return;
+            
+        _greyscaleShader?.SetParameter("SCREEN_TEXTURE", ScreenTexture);
+        
+        var handle = args.WorldHandle;
+        var viewport = args.WorldBounds;
+        // Рисуем шейдер оттенков серого
+        handle.UseShader(_greyscaleShader);
+        handle.DrawRect(viewport, Color.White);
+        // Рисуем шейдер круговой маски
+        handle.UseShader(_circleMaskShader);
+        handle.DrawRect(viewport, Color.White);
+        // Прекращаем использование шейдера
+        handle.UseShader(null);
+    }
+}
+```
 
 Шейдеру нужна область для рисования. Здесь это белый прямоугольник, равный **WorldBounds.** Обратите внимание, что **WorldAABB** не учитывает поворот и, вероятно, сломает многие шейдеры.
 
 Наконец, чтобы overlay'и действительно отрисовывались, их нужно добавить в менеджер overlay'ев:
 
-`csharp
+```csharp
 [Dependency] private readonly IOverlayManager _overlayMan = default!;
 _overlayMan.AddOverlay(your_overlay_here);
 _overlayMan.RemoveOverlay(your_overlay_here);
-`
+```
 
 Если этот overlay должен быть всегда активен, добавьте его в PostInit() в Content.Client/Entry/EntryPoint.cs.
 
