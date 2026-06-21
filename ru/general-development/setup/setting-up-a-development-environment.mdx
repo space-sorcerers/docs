@@ -100,6 +100,22 @@ winget install Microsoft.DotNet.SDK.10
 5. Выберите ветку, которую хотите использовать, в верхнем левом углу.
 6. Выберите, что вы хотите запустить, из выпадающего меню рядом с зелёной кнопкой воспроизведения в верхней части окна. Настройка завершена. Теперь вы можете нажать кнопку воспроизведения для компиляции и запуска.
 
+### Visual Studio Code
+
+1. Установите VS Code с [официального сайта](https://code.visualstudio.com/).
+2. Откройте раздел Extensions и установите следующие расширения:
+
+   | Расширение | Для чего |
+   |---|---|
+   | [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) | Основной набор для C#: автодополнение, навигация, отладка, управление проектами. Включает C# и .NET Install Tool. |
+   | [EditorConfig](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig) | Единый стиль форматирования кода во всём проекте. |
+   | [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) | Просмотр истории, авторов строк, сравнение версий прямо в редакторе. |
+   | [GitHub Pull Requests](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) | Создание и ревью PR не выходя из VS Code. |
+   | [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) и [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debug-py) | Подсветка, автодополнение и отладка Python-скриптов (нужны для вспомогательных инструментов). |
+   | [Robust YAML](https://marketplace.visualstudio.com/items?itemName=slava0135.robust-yaml) | Подсветка и автодополнение для YAML-прототипов Robust Toolbox. Требует [YAML Language Support](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml). |
+
+3. Откройте папку репозитория через `File > Open Folder`. VS Code сам предложит выбрать `.slnx` — соглашайтесь.
+
 ### VSCodium
 1. Загрузите [VSCodium Here](https://vscodium.com/) или более напрямую [на Github](https://github.com/VSCodium/vscodium/releases) (В последнем релизе нажмите выпадающий список assets, затем прокрутите до ZIP или .exe для вашей ОС).
 2. Запустите установщик или извлеките zip-файл в место по вашему выбору и запустите .exe после извлечения.
@@ -272,3 +288,24 @@ Unhandled exception. Robust.Shared.IoC.Exceptions.ImplementationConstructorExcep
 ## Система не может найти указанный файл RUN_THIS.py
 
 The system cannot find the specified file обычно означает, что OneDrive конфликтует с git репозиторием. Клонируйте git репозиторий за пределами OneDrive или отключите синхронизацию для клонированной папки.
+
+## SS14 Editor
+
+[SS14 Editor](https://github.com/TheShuEd/SS14Editor) от TheShuEd — визуальный редактор YAML-прототипов для любых форков SS14. Укажите путь к проекту — редактор прочитает собранные сборки игры и предоставит:
+
+- Автокомплит для ID сущностей, названий компонентов и `!type` полиморфных типов
+- Отображение всех полей прототипов и компонентов, включая XML-doc summary из исходного кода
+- Учёт наследования — видны компоненты, унаследованные от родительских прототипов
+- Поддержка сложных прототипов: `EntityTable`, `ConstructionGraph`, `HTN`
+
+Сборки игры читаются через `System.Reflection.MetadataLoadContext` — игровой код не выполняется.
+
+### Скачать
+
+- **Desktop-приложение** (рекомендуется): готовые сборки Electron для Windows (NSIS-установщик / portable), Linux (AppImage), macOS (Apple Silicon DMG) на [странице релизов](https://github.com/TheShuEd/SS14Editor/releases).
+- **CLI / браузер**: самодостаточный бинарник, запускает HTTP-сервер на `http://localhost:2701`. Открывается в любом браузере.
+
+### Требования
+
+- .NET 10 SDK (при сборке из исходников)
+- Любой форк SS14 со скомпилированными сборками

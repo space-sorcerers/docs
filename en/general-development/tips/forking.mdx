@@ -57,6 +57,63 @@ The MPL only requires that files under the MPL license be released to users whic
 
 Remember that this document provides a very brief overview of the licenses discussed. You should read the license of any files/code you intend to include in it's entirety and consult a lawyer if you have any questions.
 
+### Code license reference
+
+| License | Type | Must open-source your changes? | Can use in closed-source? |
+|---------|------|-------------------------------|---------------------------|
+| **MIT** | Permissive | No | Yes |
+| **Apache 2.0** | Permissive (+ patent protection) | No | Yes |
+| **ISC** | Permissive (functionally identical to MIT) | No | Yes |
+| **BSD 2-Clause** | Permissive | No | Yes |
+| **BSD 3-Clause** | Permissive (+ no endorsement clause) | No | Yes |
+| **MPL-2.0** | Weak copyleft (file-level) | Only modified files | Yes |
+| **LGPL-3.0** | Weak copyleft (library-level) | Only changes to the library | Yes |
+| **GPL-3.0** | Strong copyleft | Entire project | No |
+| **AGPL-3.0** | Strong copyleft (+ network use) | Entire project, incl. network services | No |
+
+### Asset license reference
+
+Art assets (sprites, sounds, music, fonts) use different licenses from code. The SS14 ecosystem primarily uses Creative Commons variants:
+
+| License | SPDX ID | Requires attribution? | Share-alike? | Commercial use? |
+|---------|---------|----------------------|--------------|-----------------|
+| **CC0 1.0** | `CC0-1.0` | No | No | Yes |
+| **CC BY 4.0** | `CC-BY-4.0` | Yes | No | Yes |
+| **CC BY-SA 3.0** | `CC-BY-SA-3.0` | Yes | Yes | Yes |
+| **CC BY-SA 4.0** | `CC-BY-SA-4.0` | Yes | Yes | Yes |
+| **CC BY-NC-SA 3.0** | `CC-BY-NC-SA-3.0` | Yes | Yes | No |
+| **CC BY-NC-SA 4.0** | `CC-BY-NC-SA-4.0` | Yes | Yes | No |
+| **CC BY-ND 4.0** | `CC-BY-ND-4.0` | Yes | No (no derivatives) | Yes |
+
+### License compatibility at a glance
+
+| Your code is... | Accepts MIT code? | Accepts AGPL code? | Accepts MPL code? |
+|-----------------|-------------------|--------------------|--------------------|
+| **MIT** | Yes | No (AGPL forces entire project under AGPL) | Yes |
+| **AGPL-3.0** | Yes, but MIT terms must be preserved | Yes | Yes, but MPL w/ Exhibit B is incompatible |
+| **MPL-2.0** | Yes | No (MPL Exhibit B clause) | Yes |
+
+### Recommended attribution practices
+
+When you add code or assets to your fork, it is good practice to document where they came from and under what license. This makes future porting, auditing, and upstream merges smoother.
+
+#### For code — SPDX headers
+
+Add a short comment at the top of your files with the SPDX identifier. This is machine-readable and widely used across open-source projects:
+
+```csharp
+// SPDX-FileCopyrightText: 2026 Your Name <email>
+// SPDX-License-Identifier: MIT
+```
+
+Alternatively, place a sidecar `.license` file next to your code file (e.g. `MySystem.cs.license`) with the same content.
+
+#### For assets — RGA (Robust Generic Attribution)
+
+Assets are harder to annotate inline. The SS14 ecosystem uses **RGA** — a YAML file called `attributions.yml` placed in the same folder as the assets it describes. See the full [RGA specification](../../specifications/robust-generic-attribution) for format details, field reference, and examples.
+
+The SS14 ecosystem primarily uses **MIT** (code) and **CC-BY-SA 3.0** (art). Forks with stricter licenses (AGPL, MPL) cannot accept MIT code without preserving the original MIT terms — check carefully before porting.
+
 ## Organization
 ### Put your code in dedicated server folders.
 A highly recommended pattern is to put your server's code (alongside an optional but recommended LICENSE file containing your code's software license) in its own top level folder within the major sections of the codebase.
@@ -79,6 +136,38 @@ This is usually as simple as just putting your entries at the start of the list,
 </Info>
 
 When modifying upstream code, it is recommended to leave a short comment explain *why* the change was made, so as to make upstream merges easier. An example of this would be `// FOOFORK: Changed Bar to 2 instead of 1 because everything breaks if it is 1.`
+
+For larger blocks, wrap them with start/end markers. This makes it trivial to spot your diff during upstream merges:
+
+```yaml
+# YAML
+# my-fork start
+- type: Tag
+  tags:
+  - ClothMade
+  - WhitelistChameleon
+# my-fork end
+```
+
+```csharp
+// C#
+// my-fork start
+if (!panel.LoadDb)
+{
+    AHelpHelper.LoadDbMessages(ch.Value);
+}
+// my-fork end
+```
+
+For single-line changes, inline comments suffice:
+
+```yaml
+  Quantity: 500 # my-fork: increased stack size
+```
+
+```csharp
+MinSize = new Vector2(900, 500), // my-fork: wider default window
+```
 
 ### Avoiding issues in shared enums.
 A big example of this is the AdminLog enum containing all the kinds of admin logs. Pick a recognizable decimal (or hexadecimal) prefix, positive or negative, for your values, and stick to that. Ideally, pick one randomly, so you don't have issues merging other fork's changes if you want to cherry pick.
@@ -118,6 +207,67 @@ The conflicts are trying to tell you something, if they happen.
 
 ### But don't make the defaults server-specific.
 CCVars is not your server's config file, configure your server on your server in `server_config.toml`, not in the codebase. Change defaults if the default breaks the game, enables mechanics you want disabled, or breaks your design, not to set your discord link.
+
+## Porting Changes from Other Repositories
+
+Porting is transferring a feature or fix from another repository, fork, or branch into your project.
+
+### Before you port
+
+1. **Check license compatibility** — see [Licensing Your Fork](#licensing-your-fork) above. Make sure the source repo's license is compatible with yours.
+2. **Check stability** — only port stable, tested mechanics. If the implementation is raw or marked WIP, you are better off rewriting it from scratch.
+
+### Setup
+
+```bash
+# Make sure your master is up to date
+git checkout master
+git pull
+
+# Create a working branch
+git checkout -b my-port-branch
+
+# Add the source repo as a remote
+git remote add source https://github.com/SomeOrg/some-repo.git
+
+# Fetch their commits
+git fetch source
+```
+
+### Cherry-pick (preferred)
+
+Find the commit hash(es) you need — merge commits from PRs are easiest to find at the bottom of the PR's Conversation tab.
+
+```bash
+git cherry-pick <hash1> <hash2>
+```
+
+If conflicts appear: fix them, then:
+
+```bash
+git add -A
+git cherry-pick --continue
+```
+
+### Merge (for unmerged PRs)
+
+If the PR you want was never merged, merge the source branch directly:
+
+```bash
+git merge source/feature-branch
+```
+
+### Manual porting
+
+When commits are scattered across a repo's master branch with no clear PR, copy the relevant files manually and adapt.
+
+### Writing the PR description
+
+When opening a PR with ported content:
+
+- **Description**: what was ported, from where, in what form, what was tested.
+- **Demo**: 1–2 screenshots or a short video if the mechanic is visual.
+- **Attribution**: mention all original authors in the changelog.
 
 ## Database Layout
 

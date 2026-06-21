@@ -33,7 +33,38 @@ Key | Meaning
   license: "CC-BY-3.0"
   copyright: "Endless Space by SolusLunes. Converted from MP3 to OGG."
   source: "https://www.newgrounds.com/audio/listen/67583"
+- files: ["*.png"]
+  license: "CC-BY-SA-4.0"
+  copyright: "Sprites by YourName for Space Station 14."
+  source: "https://github.com/your-fork/repo/pull/12345"
 ```
+
+Wildcard patterns (`*`) apply to all matching files in the directory that are not already covered by a more specific entry.
+
+## Folder structure
+
+Each directory with assets should have its own `attributions.yml`. Subdirectories need their own separate file — RGA does not inherit entries from parent folders.
+
+```
+Resources/Audio/Music/
+  attributions.yml      # covers thunderdome.ogg, endless_space.ogg
+  thunderdome.ogg
+  endless_space.ogg
+
+Resources/Textures/Objects/
+  attributions.yml      # covers *.png in this folder
+  sword.png
+  shield.png
+  Items/
+    attributions.yml    # separate file for subfolder
+    potion.png
+```
+
+## Rules
+
+- Every file in a directory must be covered by exactly one entry. No file should be left undocumented or appear in two entries.
+- SPDX identifiers are case-sensitive: `CC-BY-4.0` is correct, `cc-by-4.0` is not.
+- If a license has no SPDX identifier, use `Custom` and describe the terms in the `copyright` field along with a link.
 
 ## Design Goals
 

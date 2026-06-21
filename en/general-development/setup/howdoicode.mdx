@@ -47,3 +47,71 @@ A guide on the underlying architecture of SS14's game engine. A must-know if you
 
 **[CS50 | Harvard](https://cs50.harvard.edu/college/2021/spring/weeks/6/)**
 Teaches computer programming and how computers work. Covers a broad swathe of topics (different languages like C and Python, algorithms, memory, etc). To oversimplify: learning things like "for loops" and "if statements" teaches you how to talk the talk. Breaking down why algorithms work, the differences between programming languages, actually writing programs to solve puzzles, etc. is the "walk the walk" part. You can get started without this and pick it up naturally over time, though it's a slower process.
+
+## AI Assistants
+
+AI coding assistants (Claude, GPT, Gemini, Copilot, Cursor) can speed up SS14 development significantly if used correctly. They excel at some tasks and struggle at others.
+
+### What AI does well
+
+| Task | How well |
+|------|----------|
+| Boilerplate code (components, systems, prototypes) | Excellent |
+| Writing integration tests | Excellent |
+| Explaining unfamiliar code | Excellent |
+| Refactoring (extract methods, rename, deduplicate) | Excellent |
+| Code documentation and comments | Excellent |
+| Bug finding with stack traces | Good — often points in the right direction |
+| Architecture design | Mixed — good for suggestions, poor for final decisions |
+| Complex game logic | Poor — needs very precise prompting |
+
+### Recommended models
+
+| Model | Best for |
+|-------|----------|
+| **Claude** (Anthropic) | Analysis, refactoring, large context. Strong agent mode via Claude Code. |
+| **GPT** (OpenAI) | Broad generation, ecosystem integration (Cursor, Copilot). Large token limits. |
+| **Gemini** (Google) | Huge 1M token context — good for analyzing entire files at once. |
+| **Cursor** (IDE) | Knows your whole project context, edits files agentically, multi-model. |
+| **GitHub Copilot** | Autocomplete in JetBrains/VS Code. Predicts next lines and functions. |
+| **DeepSeek** | Open-source, can run locally via Ollama. Competitive coding performance. |
+
+### Workflow tips
+
+1. **Design the architecture yourself** — AI generates better code from a clear plan than from scratch.
+2. **Delegate boilerplate** — have AI write component stubs, system skeletons, YAML prototypes. Review and move on.
+3. **Provide context** — paste the relevant files or error messages, not just one line.
+4. **Always read generated code** — AI writes plausible-looking nonsense. You are responsible for every line.
+
+### Prompt templates
+
+**Explain code:**
+```
+Explain this code line by line. What does it do? Where are the potential issues?
+```
+
+**Find a bug:**
+```
+Here is the code: [code]
+Here is the error: [stack trace]
+What is happening and how do I fix it?
+```
+
+**Write a test:**
+```
+Write an integration test for this system.
+Cover edge cases, limits, and the specific behavior described below.
+```
+
+**Refactor:**
+```
+Refactor this code. Requirements:
+- readable variable names
+- remove duplication
+- split into small functions
+- preserve behavior exactly
+```
+
+<Warning>
+Never paste secrets, API keys, or sensitive business data into public AI services. Use local models or enterprise tiers for confidential code.
+</Warning>

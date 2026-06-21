@@ -11,6 +11,35 @@ We do not currently support running SS14/Robust natively on ARM macs. Install x6
 
 ## Client
 
+### YAML Linter errors
+
+Run the linter from your IDE (usually available in the Run & Debug dropdown). The output shows the exact file and line with the error. Common causes:
+
+- Wrong indentation (YAML is space-sensitive)
+- Missing space after `:`
+- List item `-` used where a mapping key is expected (e.g. under `components:`)
+- Unquoted strings containing `#` or special characters — wrap them in quotes: `"broken string"`
+
+When in doubt, compare with a working prototype nearby.
+
+### Localization shows raw ID instead of text
+
+The FTL key wasn't found. Check:
+1. The key exists in the right `.ftl` file under `Resources/Locale/<lang>/`.
+2. The key matches exactly (no extra spaces, correct case).
+3. You're editing an existing `.ftl` in the matching directory, not creating duplicates.
+4. Restart the client — hot reload may not have picked it up.
+
+## Build
+
+### Build fails after pulling upstream changes
+
+Try in order:
+1. `git submodule update --init --recursive`
+2. `dotnet clean && dotnet restore && dotnet build`
+3. Delete the `.bin` folder and rebuild
+4. Check `.NET` version with `dotnet --info` — it must match the version in `global.json`
+
 ## Server
 
 ### Port binding failures trying to start server.
@@ -33,3 +62,39 @@ Number of Ports : 16384
 ```
 
 If the `Start Port` lower range of this is like 1024, your system is screwed up AFAICT. This can be fixed by running `netsh int ipv4 set dynamicportrange tcp startport=49152 numberofports=16384` in an elevated command prompt to unfuck the dynamic port range back to IANA recommendations, and then restarting.
+
+## C# Common Errors
+
+### Nullable reference types
+
+```csharp
+// CS8618 — Non-nullable field must contain a non-null value
+[Dependency] private readonly IEntityManager _entityManager = default!; // <-- the = default! is required
+```
+
+Always add `= default!` to `[Dependency]` fields. The engine sets them before `Initialize()` is called.
+
+### Missing namespace / type not found
+
+If the compiler says a type does not exist despite being defined:
+
+1. Check that you added the right `using` directive.
+2. Check that the type is in the correct project (`Content.Client`, `Content.Shared`, or `Content.Server`). A class in `Content.Server` cannot be referenced from `Content.Client` or `Content.Shared`.
+3. If the type is in a different project, add a project reference via `.csproj`.
+
+### Putting code in the wrong project
+
+Common mistake: writing a system that calls `IoCManager` or `Clyde` in Content.Shared. Shared code cannot reference client or server singletons. Move the system to `Content.Client` or `Content.Server` instead.
+
+### Over-reliance on Quick Fix / IDE suggestions
+
+Rider and VS propose adding a type to the wrong project when pressing Alt+Enter on a missing import. Always verify that the `using` was added from the correct namespace.
+
+### Code not running / handler never called
+
+If a breakpoint in your event handler never hits:
+
+1. Is the component registered (`[RegisterComponent]`)?
+2. Is the system in the right project and inherits `EntitySystem`?
+3. Did you call `SubscribeLocalEvent` (or `SubscribeNetworkEvent`) in `Initialize()`?
+4. Does the entity actually have the component? Check via VV.

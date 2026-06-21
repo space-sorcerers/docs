@@ -55,6 +55,10 @@ dotnet run --project Content.Client --configuration Tools
 If you are using an IDE, there will be some other way of setting the configuration. For example, in VS there is simply a dropdown menu:
 ![mapping-release-dropdown.png](/images/mapping/mapping-release-dropdown.png)
 
+~~~admonish warning title="Don't use Debug for mapping"
+Always use **Tools** or **Release** configuration when mapping. Debug builds include extra error checking that can crash the server and wipe unsaved work. You can select the configuration in the IDE run dropdown or pass `--configuration Release` via CLI.
+~~~
+
 ## Without Development Environment
 If you choose not to do this, you will need to download a [recent server build](https://central.spacestation14.io/builds/wizards/builds.html).
 
@@ -91,6 +95,70 @@ Now to start creating maps follow the below steps:
 * While testing your map, you might not want to be bothered to set up power each time. In that case, use: `> entities with Battery do "setbatterypercent $ID 100"`
 * Map auto-saving is enabled by default and goes to the server data directory every 10 minutes (cvar `mapping.autosave_interval`). You can turn it off with `toggleautosave [map id]` or change the `mapping.autosave` cvar.
 
+## Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `aghost` | Enter admin-ghost mode for free-flying and mapping. |
+| `mapping <ID> <path> <isGrid>` | Create or load a map/grid for editing. |
+| `scene MappingState` | Toggle map editor mode on/off. |
+| `savemap <ID> <path>` | Save an entire map (grids + metadata) to file. |
+| `savegrid <gridID> <path>` | Save a single grid (e.g. a shuttle) without map metadata. |
+| `loadmap <ID> <path>` | Load a saved map into a free slot. |
+| `loadgrid <ID> <path> <X> <Y>` | Load an additional grid onto an existing map. |
+| `rmmap <ID>` | Remove a map from the session (doesn't delete the file). |
+| `mapinit <ID>` | Initialize (unfreeze) a map — run **after** saving, not before. |
+| `forcemap <name>` | Force the next round to start on the given map. |
+| `lsmap` | List all loaded maps with IDs, init state, and grid IDs. |
+| `tp <X> <Y> <mapID>` | Teleport to coordinates on a specific map. |
+| `loc` | Show your current grid entity ID and coordinates. |
+| `griddrag` | Click-and-drag a grid to reposition it. |
+| `fixgridatmos <gridID>` | Refill all tiles with default atmos. |
+| `fixrotations <gridID>` | Fix erroneously rotated wall entities. |
+| `colornetwork <pipeUID> Pipe <hex>` | Recolor an entire pipe network. |
+| `nodevis` | Toggle pipe/wire node overlay. |
+| `nodevisfilter <group>` | Show only one node group (e.g. `Pipe`, `Power`). |
+| `tilewalls` | Replace wall floor tiles with plating tiles. |
+| `variantize <gridID>` | Randomize tile sprite variants. |
+| `toggledecals` | Toggle decal visibility. |
+| `togglelight` | Toggle lighting on/off. |
+| `toggleautosave <mapID>` | Toggle auto-saving for a map. |
+| `zoom <N>` | Set camera zoom (e.g. `zoom 3`). |
+| `weather <mapID> <type>` | Set weather on a map (e.g. `Rain`). |
+
+## Key Bindings
+
+| Key | Action |
+|-----|--------|
+| <kbd>`</kbd> / <kbd>~</kbd> | Open developer console. |
+| <kbd>F5</kbd> | Entity spawn panel. |
+| <kbd>F6</kbd> | Tile spawn panel. |
+| <kbd>F7</kbd> | Admin menu. |
+| <kbd>F8</kbd> | Decal spawn panel. |
+| <kbd>B</kbd> | Sandbox menu (light, FOV, floor toggle, etc.). |
+| <kbd>P</kbd> | Pick entity/tile under cursor. |
+| <kbd>Shift</kbd> + click | Place a line of objects/tiles. |
+| <kbd>Ctrl</kbd> + click | Place a square/rectangle. |
+| <kbd>MMB</kbd> | Rotate object before placing. |
+| <kbd>Ctrl</kbd> + <kbd>MMB</kbd> | Mirror object (if supported). |
+
+## UI Panels
+
+- **F5 — Entity spawner**: search and place any entity prototype. Includes replace mode, delete mode, snap-to-grid and align-wall options.
+- **F6 — Tile spawner**: search and place floor/plating tiles. Delete mode places space tiles.
+- **F8 — Decal spawner**: search decals by keyword, set color (RGB/HSV), opacity, snap-to-tile, rotation, and draw depth. Left-click to place, right-click to delete.
+- **B — Sandbox menu**: toggles for lighting, FOV, shadows, subfloor view, spawn points, and AI overlay.
+
+## Mapping Design Principles
+
+- **Functionality** — every room needs a purpose and the core object for that department. Don't steal functions from other departments.
+- **Logic** — place objects where they make sense in real life. Don't put lamps inside other lamps or items in unreachable spots.
+- **Beauty** — use decals and floor variety, but don't overdo it. Stick to 2–3 main colors per room. Department-colored decals are an easy win.
+- **Balance** — don't overstock loot. Valuable items (multitools, configurators) go in hard-to-reach places. 2–3 useful items per room max.
+- **Filledness** — avoid empty rooms. Use the center of the room, not just walls. Every square should contribute to the room's purpose.
+- **Infrastructure** — power (2 circuits: supply/load), atmos (vents, scrubbers, sensors, fire alarms), disposal (pipes + mail), cameras (named by room), APCs, firelocks, spawners, fax machines, waypoints. Expect infra to take as long as the visuals.
+- **Planning** — start with a concept (who built this and why?), sketch it on paper or in paint, then make a pixel-precise blueprint before touching the editor. Never save an initialized (unfrozen) map.
+
 ## Mapping Actions
 The actions toolbar allows you to assign entity, tile, and decal placement actions. These basically serve as shortcuts that allow you to quickly switch to placing common entities/tiles/decals. These actions can be selected either by left-clicking on a filled slot, or using the corresponding keybinding (by default, these are the number keys 0-9). You can also cycle between 10 toolbars using either the arrows on the toolbar, or by using shift + `<0-9>`.
 
@@ -121,6 +189,69 @@ Now that you've completed your map, you'll want to test it in game to ensure you
 3. You can now relaunch the client and server. Once connected run the command `forcemap [ID]` where the ID is the one specified in the .yml file we mentioned just before. On Release, simply press F7 in Lobby to bring up the Admin Menu, and use `Round > Start Round` to skip waiting. If you are on Tools, run the `restartnow` command or F7 Admin Menu then `Round > Restart NOW` to restart the server on your map.
 
 4. Connect to the game and you should now be on your new map. Refer to the troubleshooting section if you're having issues.
+
+### Quick Testing Without a Prototype
+
+If you want to test a map without creating a full station prototype, use:
+- `mapinit <ID>` — initializes the map (unfreezes it, connects cameras, activates spawners). **Save your map before running this** — saving an initialized map will break it.
+- After testing, use `restartroundnow` to clear all loaded maps.
+
+The `mapinit` method gives limited functionality compared to a real round. For full testing, always create a station prototype.
+
+### Station Prototype Structure
+
+When creating a map prototype YAML, the structure defines the station's behavior, available jobs, shuttle, and goals. Here is a minimal annotated example:
+
+```yaml
+- type: gameMap
+  id: MyMap
+  mapName: 'NSS MyMap'
+  mapPath: /Maps/MyMap.yml
+  minPlayers: 0
+  maxPlayers: 65
+  stations:
+    Boxstation:
+      stationProto: MyMapStation
+      components:
+        - type: StationNameSetup
+          mapNameTemplate: '{0} MyMap {1}'
+          nameGenerator:
+            !type:NanotrasenNameGenerator
+            prefixCreator: '-SS14'
+        - type: StationEmergencyShuttle
+          emergencyShuttlePath: /Maps/Shuttles/emergency/emergency.yml
+        - type: StationJobs
+          availableJobs:
+            Captain: [ 1, 1 ]
+            HeadOfPersonnel: [ 1, 1 ]
+            StationEngineer: [ 5, 5 ]
+            MedicalDoctor: [ 4, 4 ]
+            # ... add all other jobs here
+        - type: StationGoal
+          goals:
+            - Shuttle
+            - Singularity
+            # ... station goals
+
+- type: entity
+  id: MyMapStation
+  parent: StandardNanotrasenStation
+  categories: [ HideSpawnMenu ]
+  components:
+    - type: StationMinimap
+      minimapData: !type:StationMinimapData
+        mapTexture: SS220/ViewableMaps/MyMap.png
+        originOffset: 110, 181
+        mapScale: 6.4
+```
+
+Key points:
+- `id` must be unique and latin-only, no spaces.
+- `mapPath` starts with `/Maps` and uses forward slashes.
+- `stationProto` must match the entity `id` at the bottom of the file.
+- `availableJobs` lists every job and its `[start, max]` slots. If a job is missing, it won't appear even if a spawner exists on the map.
+- After editing the prototype, you must **restart the server** (not just the round) for changes to take effect.
+- Use `forcemap MyMap` to load it — the ID should appear in autocomplete.
     
 ## Opening a PR and getting it into the game
 Once you've tested your map by running it in game as shown previously, and you've ran through the quality control checklist as shown here, you're ready to do a pull request to get your map submitted to the game.
@@ -202,18 +333,46 @@ Prefer using standard pipe colors for your atmospherics layout so that players a
 - Mix: #947507FF (brownish)
 
 ## Power
-Your power network consists of HV, MV and LV wires. In all cases the wire needs to be placed **UNDER** the respective device to connect, except in the case of LV consumers as noted below:
-* **HV wires** are your transmission lines between and generators, power storage (SMES) and your substations.
-* **MV wires** connect between your substations and your APCs. Make sure to place them under both devices.
-* **LV wires** or APC wires connect from your APCs to all consumers in a 3 tile radius (so don't place them under things, you don't need to).
+Your power network consists of HV, MV and LV wires. In all cases the wire needs to be placed **UNDER** the respective device to connect, except in the case of LV consumers as noted below.
+
+**Wire types:**
+* **HV wires** (orange) — transmission lines between generators, SMES units and substations.
+* **MV wires** (yellow) — connect between your substations and your APCs. Make sure to place them under both devices.
+* **LV wires** (green) — APC wires providing power to consumers within a 3-tile radius. You do not need to run them under every device.
+
+### Power Devices
 
 Your main devices on a power network are as follows:
-* **Substation** - Store a small amount of power. Connect to the main network via HV cables taking the power in and distribute that power our via MV cables to many APCs.
-* **APC** - Area Power Controllers. Store a tiny amount of power depending on the cell inside. Connect to a substation via an MV cable. An LV cable under them is then used to provide power to consumers. Make sure to place these facing the direction they will be used.
-* **SMES** - Used to store huge amounts of power on a HV network. Cannot cable between SMES' so you need to wire out then back in.
-* **Cable Terminal** - Used to separate circuits on your HV network. Your primary circuit is on the side with the box and your secondary side (output) is where the cables point. Place these pointing into a bank of SMES' so your generation is on the primary side and your main network is coming out of the SMES through the cable side of the cable terminal (see picture below for visual aid). The secondary side will drain from the primary side so use these sparingly on the secondary circuit.
-* **Generators** - This can be portable generators, plasma collectors, solar panels and more. Stick a HV cable under these to use the generated power. This includes the AME controller.
-* **PA Power Box** - Special mention, in order to power the particle accelerator you need a HV cable under the PA cable / power box.
+
+* **SMES** — High-voltage battery banks that store huge amounts of power. You cannot cable directly between two SMES units; wire out then back in. SMES arrays are usually placed in the engineering power block and supply the entire station. Additional SMES units may be placed near individual engines (solar arrays, singularity, tesla, TEG) for self-sufficient startup power.
+* **Cable Terminal** — Separates circuits on your HV network. Place these with the red cables pointing **toward** the SMES bank. Your generation connects on the primary side (the box side), and the station grid connects on the secondary side (the cable side). The secondary side drains from the primary, so use these sparingly.
+* **Substation** — Store a moderate amount of power. Connected to the main HV network on the input side and distributes MV power to several APCs on the output side. One substation per department is a good rule of thumb, placed in nearby maintenance tunnels.
+* **APC** — Area Power Controller. Stores a small amount of power depending on the battery cell inside. Connect to a substation via an MV cable. An LV cable under the APC then powers every consumer within a 3-tile radius. Place APCs facing into the room they serve — they can only be accessed from the front.
+* **Generators** — Portable generators, plasma collectors, solar panels, the AME controller, and any other engine. Stick an HV cable under these to collect generated power.
+* **PA Power Box** — To power the particle accelerator, place an HV cable under the PA cable / power box.
+
+### Power Distribution Flow
+
+The ideal power chain: **Engine → HV cable → SMES (via Cable Terminal) → HV cable → Substation → MV cable → APC → LV cable → Consumers**
+
+1. **Engines** produce HV power. Collectors (radiation collectors, tesla coils) or the engine core itself output HV.
+2. HV cables run from the engine to a **Cable Terminal** next to a **SMES** bank. The terminal's red cables face the SMES.
+3. From the SMES bank, another HV cable runs to each **Substation**.
+4. Each substation converts to MV and feeds several **APCs** via MV cables.
+5. Each APC powers all connected devices within a 3-tile LV radius.
+
+### Sector Division
+
+Treat each department as its own power sector:
+- Place **one substation per department** in maintenance adjacent to that department.
+- Place **one APC per room** (or one per pair of small adjacent rooms). Avoid putting APCs on the same wall as a neighboring room's APC to prevent LV loop conflicts.
+- Corridors usually need 2 APCs per full loop around a department.
+- Keep substations and APCs accessible — antagonists frequently target them.
+- Do not block APCs with furniture; engineers need to reach them.
+
+### Overcharge
+
+SMES units can be overcharged beyond their normal capacity by modifying VV parameters. This is typically used for maps that expect high power draw or as a difficulty modifier. Adjust the SMES component's capacity and input/output values via View Variables.
 
 For all other details relating to power such as setting up engines, refer to the gameplay wiki [here](https://wiki.spacestation14.io/wiki/Power).
     
@@ -234,6 +393,16 @@ Palettes can be selected in the decal menu. These are commonly used colors like 
 
 You can add your own palettes very easily. Simply go to Resources/Prototypes/Palettes, copy one of the templates into a new file, and change the ID/name as well as the colors you'd like to use. The colors are in the hex format RRGGBBAA.
 
+### Opaque Underlay Technique for Colored Decals
+
+When placing colored decals on detailed floor tiles (e.g. brick or grid patterns), low opacity (40%) often looks washed out while full opacity (100%) looks oversaturated. The fix is simple:
+
+1. First place an **opaque tile decal** (plain floor-type decal at 100% opacity) on the tile.
+2. Then place your **colored decal** on top at your desired opacity (40-70%).
+3. The opaque underlay neutralizes the floor pattern, making the colored decal sit cleanly without looking noisy.
+
+This works for any floor that has strong visual texture. The opaque tile decals are found in the decal spawner — look for basic floor decals.
+
 ## Warp Points, Station Beacons and Station Maps
 All maps need warp points so observers can get around quicker.
 
@@ -245,6 +414,57 @@ If you want to allow people to ghost warp to a location but don't want it to sho
 View variable (VV) is your friend. Right click an entity such as a door or sign and navigate to the server variables tab. In here you can edit the name and description of any entity on your map.
 
 Use this to name specific doors on your map or give flavor to warning signs and buttons to make their purpose more obvious to players.
+
+## View Variables (VV) Deep Dive
+
+View Variables allows you to inspect and modify any entity or component at runtime. Use it to customize objects beyond what prototypes offer — change names, descriptions, add/remove components, and tweak behavior flags.
+
+### Accessing VV
+
+Right-click any entity → **Debug** → **View Variables** (or press F7 → Objects tab → find the entity). The window shows four tabs — ignore the two Client tabs and always work in the **Server Variables** and **Server Components** tabs (Client tabs are identical in structure but changes there won't persist).
+
+### Editing Variables (Name / Description)
+
+In the **Server Variables** tab, find `Name` and `Description`. Type your text into the value field and press **Enter** to apply. Rules:
+- Names start with a **lowercase** letter
+- Descriptions start with an **uppercase** letter and end with punctuation
+
+### Editing Components
+
+The **Server Components** tab lists all components on the entity. You can:
+- **Add** a component — click "Add Component", search by name, select it.
+- **Remove** a component — click the X next to it (removing `Destructible` makes an entity indestructible, removing `Anchorable` prevents unwrenching).
+- **Modify flags** — expand a component and change its fields.
+
+### Common Component Reference
+
+| Component | Purpose | Key Flags |
+|-----------|---------|-----------|
+| `ApcPowerReceiver` | Device requires LV power | `NeedPower` — set false to make it run without power |
+| `PowerSupplier` | Device supplies power to the grid | `MaxSupply` — max output; `SupplyRampRate` / `SupplyRampTolerance` — ramp-up per tick |
+| `Destructible` | Entity can be destroyed | Remove the component entirely to make it indestructible |
+| `RCDDeconstructable` | Can be deconstructed with RCD | `Deconstructable` — set false to prevent RCD removal |
+| `Anchorable` | Can be bolted to the floor with a wrench | `Anchorable`/`Unanchorable` — toggle which direction is allowed; `None` blocks both; `Delay` — time; `Tool` — change tool type (e.g. `Welding`) |
+| `Damageable` | Entity can take damage | Remove to make attacks pass through |
+| `Rotatable` | Player can rotate the entity | `Increment` — snap angle (default 90°, set 180° for mirror-only) |
+| `Physics` | Entity collision & physics | `CanCollide` — set false to allow walking through |
+| `Transform` | Entity position in the world | `_localPosition` — fine X/Y offset (good for items on tables); `_localRotation` — rotation angle |
+| `Item` | Entity can be picked up | Remove to make a decorative item non-interactable |
+| `PoweredLight` | Light fixture behavior | `On` — toggle; `isBlinking` — constant flicker; `IgnoreGhostBoo` — immune to ghost interactions |
+| `TimedDespawn` | Entity despawns after N seconds | `Lifetime` — remaining time; set high for long-lived projections |
+| `Airtight` | Blocks gas passage | Remove to let gas flow through |
+| `AntiRottingContainer` | Prevents rotting inside (body bags, fridges) | — |
+| `Insulated` | Shock protection | `Coefficient` — shock probability (0 = fully insulated) |
+| `RadiationSource` | Emits radiation | `Intensity` — max rads near source; `Slope` — falloff per tile |
+| `IgnoreFTLMassLimit` | Grid ignores 300-unit mass limit for BSS jumps | — |
+
+### Common Use Cases
+
+- **Making a generator indestructible and unwrenchable**: remove `Destructible` and `Anchorable` components.
+- **Hidden passages**: set `CanCollide` to false on `Physics` for wall entities.
+- **Custom loot**: place a rare item, then remove its `Item` component if it should stay as decoration only.
+- **Invulnerable lights**: remove `Damageable` from light fixtures.
+- **Fine-tuning position**: use `Transform._localPosition` to shift objects by sub-tile amounts.
 
 ## Vehicle Spawners
 - To map vehicles, similar to animals, you need to use the spawner and not the actual entity.
@@ -305,6 +525,67 @@ This is a space station simulator, after all, but if for some reason you need ma
      - Set *EnableVV* to True\
     
 4. Save and test.
+
+## Parallax
+
+A parallax is the background layer visible outside the station windows. You can create custom parallaxes and assign them to your map.
+
+### Where Parallaxes Are Stored
+
+Parallax prototypes are in `Resources/Prototypes/Parallaxes` (vanilla) or your fork's equivalent path. Vanilla parallaxes include `Sky`, `Dirt`, `Grass`, `Snow`, `FastSpace`, and several station-specific ones.
+
+### Assigning a Parallax to a Map
+
+1. Open the map's View Variables: press F7 → Objects → Maps tab → right-click your map name → View Variables.
+2. Go to **Server Components** and click "Add Component".
+3. Search for `Parallax` and select `ParallaxComponent`.
+4. Expand the new component and enter the parallax ID (e.g. `Sky`) in the appropriate field.
+5. Save and reload the map to see the change.
+
+### Creating a Custom Parallax
+
+One common workflow uses [Space Background Generator](https://deep-fold.itch.io/space-background-generator):
+
+1. Generate an image — set width/height (1000x1000 is a good default).
+2. Choose a color palette; avoid oversaturated colors.
+3. Export each **layer separately** with `Transparency` enabled. Layers typically include: background, dust, nebulae, planets, stars.
+4. Also export a **background layer** with all display layers turned off.
+5. Save the images to `Resources/Textures/<YourNamespace>/Parallaxes/` and add an entry to `license.txt` crediting the generator.
+
+### Creating a Parallax Prototype
+
+Create a YAML file in `Resources/Prototypes/<YourNamespace>/Parallaxes/`:
+
+```yaml
+- type: parallax
+  id: MyCustomParallax
+  layers:
+    - texture:
+        !type:ImageParallaxTextureSource
+        path: "/Textures/MyNamespace/Parallaxes/Background.png"
+      slowness: 0.998
+      scale: "1, 1"
+    - texture:
+        !type:ImageParallaxTextureSource
+        path: "/Textures/MyNamespace/Parallaxes/Stars.png"
+      slowness: 0.97
+      scale: "1, 1"
+    - texture:
+        !type:ImageParallaxTextureSource
+        path: "/Textures/MyNamespace/Parallaxes/Planets.png"
+      slowness: 0.94
+      scale: "1, 1"
+      tiled: false
+  layersLQ:
+    - texture:
+        !type:GeneratedParallaxTextureSource
+        id: ""
+        configPath: "/Prototypes/Parallaxes/parallax_config.toml"
+        slowness: 0.875
+  layersLQUseHQ: false
+```
+
+Each `- texture` block is one layer. Tweak `slowness` (movement speed, lower = faster), `scale`, and `scrolling` per layer. The `layersLQ` section provides a low-quality fallback for potato machines. A good parallax is atmospheric — if you want to sit and watch it, it's probably right.
 
 # Mapping Standards
 ## Docking Ports / Evac / Escape

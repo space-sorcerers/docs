@@ -17,6 +17,40 @@ The `Shared` project contains shared code that can be used by the client or the 
 
 Shared code is only allowed to access other shared code, not client or server code. However, client and server code are always allowed to access shared code.
 
+## Client, Shared, Server in Practice
+
+Where you put your code depends on which side needs it:
+
+| Side | What goes there |
+|------|-----------------|
+| **Content.Client** | Rendering, UI, input handling, client-side prediction. Anything that should only run on the player's machine. |
+| **Content.Shared** | Components, events, network messages, systems that must run on both sides (prediction). NO server-only or client-only references allowed. |
+| **Content.Server** | Game logic, admin systems, persistent state, anything that must be authoritative. |
+
+### Shared — when to use it
+
+A system or component goes in `Shared` when:
+
+- Both sides need the same data (e.g. a health component read by the UI on client and updated by combat on server).
+- A system runs predictively (e.g. movement, physics, damage calculation).
+- An event or network message is exchanged between client and server.
+
+Anything that references engine singletons (`IoCManager`, `Clyde`, `BaseServer`) cannot go in Shared.
+
+### Practical example
+
+To play a sound when an item is used:
+
+1. **Component** (`PlaySoundOnUseComponent`) goes in **Shared** — both sides need the sound path for prediction.
+2. **Server system** (`PlaySoundOnUseSystem` in `Content.Server`) subscribes to `UseInHandEvent`, validates the action, calls `PlayPvs`.
+3. **Client system** (optional, in `Content.Client`) handles prediction or UI feedback.
+
+### Rules of thumb
+
+- If a type is only meaningful on one side (e.g. a GUI control), keep it out of Shared.
+- If you're unsure, start in Shared. Moving code from Shared → Server/Client is easier than the reverse.
+- Use `[Dependency]` for system references everywhere, including Shared systems.
+
 ## Game Code
 
 In SS13, all game code is randomly thrown around under `code/`, and instead of grouping by relevance to systems, is grouped by abstract things like whether the file is a list of constants or whether a file pertains to a master controller subsystem. In SS14, we first delineate by which game system we're working with (atmos/botany/buckling, etc) and then by the classes needed for it, which is much easier for anyone actually trying to work within a single system.
@@ -51,3 +85,37 @@ Parent prototypes should be contained in `base.yml` in this folder, while other 
 Not everywhere is organized like this; however, the `Structures` folder is.
 
 This was chosen to make the directory structure mirror the prototype inheritance tree, making it obvious where to place new prototypes as well as being fairly unambiguous when choosing to create new folders.
+
+## Common EntitySystem Methods
+
+These methods are available on every `EntitySystem` via proxy:
+
+| Method | What it does |
+|--------|-------------|
+| `Name(uid)` | Returns the entity's name |
+| `Transform(uid)` | Returns `TransformComponent` |
+| `MetaData(uid)` | Returns `MetaDataComponent` |
+| `Timing` | Current game time (`IGameTiming`) |
+| `Log` | Server/client logger (`ISawmill`) |
+| `TryComp<T>(uid, out comp)` | Safely get a component |
+| `HasComp<T>(uid)` | Check if entity has a component |
+| `Comp<T>(uid)` | Direct component access (throws if missing) |
+| `EntityManager` | Low-level entity operations |
+| `Resolve(uid, ref comp)` | Validates and resolves component references |
+| `Dirty(uid, comp)` | Marks component for network sync |
+| `DirtyField(uid, comp, nameof)` | Marks a single field for network sync |
+
+### Useful systems you will dependency-inject often
+
+| System | Purpose |
+|--------|---------|
+| `SharedAudioSystem` | Play sounds (`PlayPvs`, `PlayGlobal`) |
+| `SharedPopupSystem` | Show chat popups (`PopupEntity`, `PopupCursor`) |
+| `IRobustRandom` | Random numbers — inject via `[Dependency]` |
+| `SharedTransformSystem` | Move/rotate entities, set coordinates |
+| `SharedAppearanceSystem` | Set visual state (`SetData`) |
+| `SharedInteractionSystem` | Check reachability, line of sight |
+| `SharedContainerSystem` | Manage entity containers (inventory, held items) |
+| `AdminLogSystem` | Write admin-visible logs |
+| `SharedMapSystem` | Create/delete maps and grids |
+| `INetManager` | Check if running server (`IsServer`) or client (`IsClient`)

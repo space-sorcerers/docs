@@ -102,6 +102,22 @@ And with that, your repo is now properly setup!
 5. Choose the branch you want to use in the top left.
 6. Select what you want to run from a dropdown menu next to the green play button at the top of the window. The setup is finished. You can now press the play button to compile and run it.
 
+### Visual Studio Code
+
+1. Install VS Code from the [official website](https://code.visualstudio.com/).
+2. Open the Extensions panel and install the following extensions:
+
+   | Extension | Purpose |
+   |---|---|
+   | [C# Dev Kit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) | Core C# tooling: autocompletion, navigation, debugging, project management. Includes C# and .NET Install Tool. |
+   | [EditorConfig](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig) | Consistent code formatting across the project. |
+   | [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) | Inline blame annotations, history, code lens — see who changed what and why. |
+   | [GitHub Pull Requests](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github) | Create, review, and manage PRs without leaving the editor. |
+   | [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) and [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debug-py) | Syntax highlighting, autocompletion, and debugging for Python helper scripts. |
+   | [Robust YAML](https://marketplace.visualstudio.com/items?itemName=slava0135.robust-yaml) | Syntax highlighting and autocompletion for Robust Toolbox YAML prototypes. Requires [YAML Language Support](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml). |
+
+3. Open the repo folder via `File > Open Folder`. VS Code will prompt you to select the `.slnx` file — accept it.
+
 ### VSCodium
 1. Download [VSCodium Here](https://vscodium.com/) or more directly [on Github Here](https://github.com/VSCodium/vscodium/releases) (On the latest release, click the assets dropdown then scroll to the ZIP or .exe for your OS).
 2. Run the installer or extract the zip file to a location of your choice and run the .exe once extracted.
@@ -272,3 +288,24 @@ This may be because you opened the project as a folder rather than a solution. M
 ## The system cannot find the specified file RUN_THIS.py
 
 `The system cannot find the specified file` error usually means that OneDrive is conflicting with the git repository. Clone the git repo outside of OneDrive or disable syncing for the cloned folder.
+
+## SS14 Editor
+
+[SS14 Editor](https://github.com/TheShuEd/SS14Editor) by TheShuEd is a standalone visual editor for prototype YAML files. It works with any SS14 fork — point it at your project folder and it reads the compiled game assemblies to provide:
+
+- Auto-complete for entity IDs, component names, `!type` polymorphic types
+- Display of all prototype and component fields, including XML doc summaries from the source code
+- Inheritance-aware view — see which components a child entity inherits from its parents
+- Support for complex prototypes like `EntityTable`, `ConstructionGraph`, `HTN`
+
+The editor reads game DLLs via `System.Reflection.MetadataLoadContext` — no game code is ever executed.
+
+### Downloads
+
+- **Desktop app** (recommended): pre-built Electron packages for Windows (NSIS installer / portable), Linux (AppImage), macOS (Apple Silicon DMG) on the [Releases page](https://github.com/TheShuEd/SS14Editor/releases).
+- **CLI / browser**: standalone self-contained binary that runs an HTTP server on `http://localhost:2701`. Open it in any browser.
+
+### Requirements
+
+- .NET 10 SDK (if building from source)
+- Any SS14 fork with compiled assemblies

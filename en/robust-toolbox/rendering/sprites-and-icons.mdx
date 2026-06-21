@@ -65,3 +65,162 @@ The main prototype also has some properties:
 * `visible`: makes the entire component visible or not.
 
 All these properties can be changed at runtime with methods on the component.
+
+---
+
+# Sprite Art Guide
+
+This guide covers the visual side of creating sprites for Space Station 14. These are recommendations, not strict rules — use them as a starting point and develop your own style with practice.
+
+## Visual Style
+
+SS14 uses a **3/4 top-down projection** — you see the top face and one side of each object. The light source is typically above and slightly to one side.
+
+### Palette
+
+Use a limited palette of **4–5 shades per base color**:
+
+| Shade | Purpose |
+|-------|---------|
+| Highlight | Brightest point, used for glossy surfaces |
+| Light | Lit area facing the light source |
+| Base | The main color of the material |
+| Mid-shadow | Transition between base and shadow |
+| Shadow | Darkest area, opposite the light source |
+
+A good rule of thumb: make shadows slightly **cooler** (bluish) and highlights slightly **warmer** (yellowish). This is called hue shifting and makes colors feel more natural.
+
+![Palette diagram](https://serbiastrong-220.github.io/ss220-docs/pictures/spriting/style/palette.png)
+
+### Contour (Outline)
+
+- Every sprite needs an **outline** — it separates the object from the background.
+- **Never use pure black outlines**. Use a darker shade of the object's own color instead.
+- Vary the outline color slightly along the shadow side for a softer look.
+
+![Proper vs improper outline](https://serbiastrong-220.github.io/ss220-docs/pictures/spriting/lineart/contour.png)
+
+### Contrast
+
+Make sure light and shadow are clearly different. Low contrast makes sprites look flat and hard to read at a distance. If in doubt, zoom out — if details blend together, increase contrast.
+
+## Theory
+
+### Line Art
+
+Start with clean lines before adding color. Key points:
+
+- Keep line thickness **consistent** throughout the sprite.
+- Avoid **jagged edges** — diagonal lines should use a smooth, repeating pixel pattern.
+
+![Jagged vs smooth curves](https://serbiastrong-220.github.io/ss220-docs/pictures/spriting/lineart/curves.png)
+
+### Anti-Aliasing
+
+Anti-aliasing (AA) softens harsh pixel edges by placing intermediate-color pixels at corners and curves. Use it sparingly — too much makes sprites blurry.
+
+![Aliased vs anti-aliased](https://serbiastrong-220.github.io/ss220-docs/pictures/spriting/anti-aliased/example.png)
+
+Avoid **banding** — parallel lines of similar color that create a striped effect. Banding makes shadows look mechanical. If you're not sure, keep it simple and clean.
+
+![Banding example](https://serbiastrong-220.github.io/ss220-docs/pictures/spriting/anti-aliased/banding.png)
+
+### Shading by Material
+
+Different materials reflect light differently:
+
+| Material | Shading Style |
+|----------|---------------|
+| Metal | Strong highlights, high contrast, sharp transitions |
+| Plastic | Medium contrast, softer highlights |
+| Fabric | Diffuse light, soft shadows, no highlights, matte |
+| Wood | Matte (raw) or glossy (varnished), often with grain texture |
+| Glass | Semitransparent, strong edge highlights |
+
+Always define your **light source first** before shading. In SS14, light comes from above.
+
+![Sphere shading steps](https://serbiastrong-220.github.io/ss220-docs/pictures/spriting/shading/arc1.png)
+
+### Axonometry (3/4 Perspective)
+
+Objects are drawn in a 3/4 top-down projection. The 3/4 edge (where the top face meets the side face) is usually highlighted to make the form readable.
+
+Start with **primitive shapes** (cube, cylinder, sphere) to block out volume. Build the object like a construction kit, check the silhouette, then add color and shading.
+
+![Axonometry cube](https://serbiastrong-220.github.io/ss220-docs/pictures/spriting/axonometry/axonometry3-4.png)
+
+### Common Mistakes
+
+- **Pillow shading** — shading evenly from center to edges without a light source. Always pick a light direction first.
+- **Over-dithering** — too much pixel noise hides the form. Use dithering sparingly for texture only.
+- **Too many colors** — stick to 4–5 per base color; more shades rarely improve a 32×32 sprite.
+
+## Software
+
+### Aseprite (Recommended)
+
+Aseprite is the most popular pixel art editor. It's specialized, lightweight, and great for animation.
+
+**Basic tools:**
+
+| Tool | Key | Use |
+|------|-----|-----|
+| Pencil | B | Draw individual pixels |
+| Eraser | E | Remove pixels |
+| Eyedropper | I | Pick a color from the canvas |
+| Paint Bucket | G | Fill an area with one color |
+| Selection | M | Select/move/copy areas |
+| Line | L | Draw straight lines |
+
+**Useful shortcuts:**
+- `Shift + R` — replace one color with another
+- `Shift + H` — flip horizontally
+- `Shift + V` — flip vertically
+- `Shift + O` — auto-outline selection
+
+**Animation:** Press `Tab` to open the timeline. Layers work like transparent sheets. `Shift + N` for new layer, `Alt + N` for new frame.
+
+**Scripts:** Aseprite supports Lua scripts (File → Scripts → Open Scripts Folder). The More Color Shading Options script helps generate palettes.
+
+### Resprite (Mobile)
+
+Free Aseprite-like editor for phones. Useful for quick sketches and practice on the go.
+
+## Practice
+
+### Approach 1: Template-Based
+
+Use existing sprite templates (SS220 has a large collection). Replace the palette while keeping the structure:
+
+1. Load a template.
+2. Replace each shade with your chosen colors.
+3. Adjust brightness/saturation to fit the game's style.
+
+This approach is great for learning palette work and clothing structure.
+
+### Approach 2: From Scratch
+
+Start with a simple object (e.g., a wooden chair) to practice the full pipeline:
+
+1. **Silhouette** — block out the basic shape. Define the light source.
+2. **Volume** — add details (legs, seat, backrest) in the right perspective.
+3. **Shadows & Outlines** — darken areas away from the light. Add colored outlines.
+4. **Edge transitions** — highlight the 3/4 edge between faces.
+5. **Drop shadow** — add a shadow on the ground matching the light direction.
+
+Build up from simple shapes. Even complex objects can be broken into cubes, cylinders, and spheres.
+
+## Working with RSI
+
+For technical details on the RSI format (meta.json, state naming, licensing), see the [RSI specification](./sprites-and-icons#texture-selection) above. Key naming conventions:
+
+- RSI folder names: lowercase, underscore-separated, no prefixes like `_ss220`
+- Sprite files inside: `icon.png` (32×32 inventory), `equipped-INNERCLOTHING.png` (64×64, 4 dirs), `inhand-left.png` / `inhand-right.png`
+- `meta.json` must include: version, license, copyright, size, and states array
+
+## Resources
+
+- [Pixel Logic — Michael Azzi](https://gumroad.com/l/pixel_logic) (recommended reading)
+- [Aseprite](https://aseprite.org/) — pixel art editor
+- [Space Background Generator](https://deep-fold.itch.io/space-background-generator) — for parallax backgrounds
+- SS220/Sunrise spriting guides (source of this condensed guide)

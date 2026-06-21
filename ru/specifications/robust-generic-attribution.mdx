@@ -32,7 +32,38 @@ YAML содержит произвольное количество записе
   license: "CC-BY-3.0"
   copyright: "Endless Space by SolusLunes. Converted from MP3 to OGG."
   source: "https://www.newgrounds.com/audio/listen/67583"
+- files: ["*.png"]
+  license: "CC-BY-SA-4.0"
+  copyright: "Sprites by YourName for Space Station 14."
+  source: "https://github.com/your-fork/repo/pull/12345"
 ```
+
+Wildcard-шаблоны (`*`) применяются ко всем подходящим файлам в директории, которые не покрыты более конкретной записью.
+
+## Структура папок
+
+Каждая директория с ассетами должна иметь свой `attributions.yml`. В подпапках — отдельный файл. RGA не наследует записи из родительских папок.
+
+```
+Resources/Audio/Music/
+  attributions.yml      # покрывает thunderdome.ogg, endless_space.ogg
+  thunderdome.ogg
+  endless_space.ogg
+
+Resources/Textures/Objects/
+  attributions.yml      # покрывает *.png в этой папке
+  sword.png
+  shield.png
+  Items/
+    attributions.yml    # отдельный файл для подпапки
+    potion.png
+```
+
+## Правила
+
+- Каждый файл в директории должен быть покрыт ровно одной записью. Нельзя оставлять файл без записи или указывать его в двух записях.
+- SPDX-идентификаторы регистрозависимы: `CC-BY-4.0` — правильно, `cc-by-4.0` — нет.
+- Если у лицензии нет SPDX-идентификатора, используйте `Custom` и опишите условия в поле `copyright` вместе со ссылкой.
 
 ## Цели дизайна
 

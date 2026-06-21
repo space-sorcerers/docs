@@ -188,6 +188,30 @@ ent-RedOxygenTank = oxygen tank
 ```
 Look! no YAML definition for name or desc!
 
+## Localization Workflow
+
+### Finding or creating the right .ftl file
+
+FTL files in `Resources/Locale/<lang>/` mirror the structure of `Resources/Prototypes/` (for prototypes) and `Resources/Textures/` (for other strings). Convention:
+
+- **Entity names, descriptions, suffixes** go under `_prototypes/` subdirectory.
+- **UI text, messages, tooltips, and everything else** go under `_strings/`.
+
+To find the right file, take the prototype's path and look for a matching `.ftl` under the locale directory. For example, a prototype at `Resources/Prototypes/Entities/Clothing/Back/backpacks.yml` would have its localization at `Resources/Locale/ru-RU/_prototypes/entities/clothing/back/backpacks.ftl`.
+
+If no matching `.ftl` exists, create one in the closest matching directory.
+
+### Duplicating localization
+
+When two prototypes share the same name or description, reference the existing one instead of repeating:
+
+```
+ent-Prototype1 = Shared Name
+  .desc = Shared description.
+ent-Prototype2 = { ent-Prototype1 }
+  .desc = { ent-Prototype1.desc }
+```
+
 ## Advice
 - ***INDENT WITH SPACES, NOT TABS***
     - Fluent treats tabs literally, so they can't be used for indentation

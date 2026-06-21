@@ -61,3 +61,41 @@ There is a template that can be used below. **Note that there is no limit to siz
 
 * At the time of writing there is no automatic cabling so if you wish for the dungeon to be powered it's recommended you attach wires at the middle points on each edge for your rooms (still inside of the bounds).
 
+### Creating a Dungeon Atlas (Room Grid)
+
+A dungeon atlas is a single map file containing all room templates arranged on one grid. The procedural generator picks rooms from this atlas and assembles them into a dungeon.
+
+**Setup:**
+1. Create a new empty map. Place rooms starting at world coordinates (0,0) and extending into positive X and positive Y only.
+2. Use a bright yellow tile or other marker to visually separate room boundaries.
+3. Group rooms of similar sizes together for easier navigation.
+
+**Required room sizes** (width x height in tiles, not including walls):
+- 17x5, 11x5, 7x5, 5x5, 3x5
+- 13x3, 11x3, 7x3, 7x7
+
+You need at least one room of each size, more is better.
+
+**Critical rules:**
+- **Do not map exterior walls** — walls, windows, and doors around your rooms are generated procedurally. Do not add walls unless deliberately creating a buried structure.
+- **Wire for power yourself** — if the dungeon needs electricity, run LV cables inside each room and place at least one room with a power source (SMES, substation, or generator) and its APC. LV wires will automatically connect neighboring rooms when the dungeon is assembled.
+- **Do not map mobs or high-value loot** — enemy spawns and valuable items are distributed procedurally. Only map furniture, decoration, and thematic props.
+- **Each room side must have space for an entrance** — every side of your room expects a 3-tile entrance: 1 tile door + 2 tiles windows. Do not fully block any side, or the generator may place an entrance into a wall.
+- **Save the atlas as a grid** — use `savegrid <GridID> <path>` to save, not `savemap`.
+
+Save the atlas to `Resources/Maps/Dungeon/` or your fork's equivalent. See existing atlases for examples (e.g., `Maps/Dungeon/Experimental`).
+
+### Dungeon Room Prototype
+
+Each room on the atlas needs a prototype specifying its bounds and map offset:
+
+```yaml
+- type: dungeonRoom
+  id: MyRoom
+  atlasPath: /Maps/Dungeon/my_atlas.yml
+  offset: 0,0
+  bounds: [0, 0, 17, 5]
+```
+
+The `offset` is the tile position of the room's top-left corner on the atlas. The `bounds` are `[x, y, width, height]`.
+

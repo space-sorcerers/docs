@@ -43,6 +43,18 @@ While you're here, install `Python 3.7+` as well if you don't have it already. Y
 When [setting up your `user.name` and `user.email`](https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup#_your_identity), know that these are publicly displayed on all commits that you create. If you want to keep your information private, you can set `user.name` to your username instead of your real name, and `user.email` to the one provided by GitHub when the [`Keep my email addresses private`](https://github.com/settings/emails#toggle_visibility) setting is checked in [GitHub Email Settings](https://github.com/settings/emails#primary_email_select_label).
 </Danger>
 
+<Info>
+If you plan to use SSH instead of HTTPS for cloning (e.g. to avoid authentication issues), set up an SSH key:
+
+```
+ssh-keygen -t ed25519 -C "your_email@example.com"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
+
+Then copy `~/.ssh/id_ed25519.pub` and add it in GitHub → Settings → SSH and GPG keys. Verify with `ssh -T git@github.com`.
+</Info>
+
 Now that you have Git installed, I recommend you read up a bit on the basics of it first and get acquainted with whatever git client you're working with, whether its just command-line (Git Bash) or anything else.
 
 We're going to run through the process of setting up a Git environment for Space Station 14 so that you can **contribute code through pull requests, create your own codebase**, or just **check out the history of the project.**
@@ -743,6 +755,28 @@ git reset --hard HEAD~1
 
 For when you REALLY don't want anyone to know about that xenomorph erotica you just made. This method rewrites history, so it isn't the best for a collaborative environment. If you do this, you'll need to force push (`git push origin [branch] --force`) or else it won't work. Force pushing can be dangerous, so again, be sure you know what you're doing.
 
+## Cherry-picking specific commits
+
+If you only need some commits from one branch into another (e.g. your feature branch accidentally includes commits from an old branch), cherry-pick them individually:
+
+```
+git checkout target-branch
+git cherry-pick <commit-hash-1> <commit-hash-2>
+```
+
+Find the hashes with `git log --oneline`. The commits are applied on top of your current branch without bringing unrelated history.
+
+## Undoing an accidental pull
+
+If you pulled into the wrong branch and haven't pushed yet, use `git reflog` to go back:
+
+```
+git reflog
+# find the entry before the pull, e.g. HEAD@{3}
+git reset --hard HEAD@{3}
+```
+
+If you already pushed, create a clean branch and cherry-pick your intended commits instead.
 
 ## Checking out a PR's changes locally
 

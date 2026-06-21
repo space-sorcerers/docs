@@ -122,5 +122,41 @@ By default, Rider will disable optimizations on *all* assemblies when running vi
 You can disable this by unticking this checkbox in Settings -> Build, Execution & Deployment -> Debugger:
 ![rider_debugger_opts.png](/images/debug-rider-opts.png)
 
+## Debugging C# with Rider
+
+### Attaching the debugger
+
+Run both client and server. Use **Run → Attach to Process** in Rider (or **Debug → Attach Unity Debugger** in VS) and select the process you need — the server or the client.
+
+### Breakpoints
+
+Set breakpoints in C# files as usual. Keep in mind:
+
+- Client and server run in **separate processes** — a breakpoint in shared code only hits on the side you are debugging.
+- Use **Conditional breakpoints** (`Right-click → Set Condition`) when the code runs for many entities and you only care about a specific one.
+
+### Logging without a debugger
+
+```csharp
+Log.Debug("Debug message");
+Log.Info("Info message");
+Log.Warning("Warning");
+Log.Error("Error");
+```
+
+The `Log` proxy is available in every EntitySystem. On the client, output appears in the F3 debug overlay. On the server, it goes to the terminal.
+
+### Debug.Assert
+
+```csharp
+Debug.Assert(condition, "Message if false");
+```
+
+Fails fast when invariants are violated. Only runs in debug builds.
+
+### Profiling
+
+Rider includes a built-in CPU profiler and memory profiler (**Run → Profile 'Configuration'**). The game also has `showgraph` and `perf` console commands for runtime profiling.
+
 ## External Tools
 * [renderdoc](https://renderdoc.org/) - Perfect for debugging the rendering engine and shaders.
