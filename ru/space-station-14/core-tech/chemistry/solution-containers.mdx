@@ -1,0 +1,67 @@
+---
+title: "Solution Containers"
+---
+
+
+Чтобы сделать сущность контейнером раствора, добавьте `SolutionContainerManager`. Вот пример пустого раствора желудка:
+```yaml
+  - type: SolutionContainerManager
+    solutions:
+      stomach:
+      	maxVol: 200
+```
+
+и полный раствор напитка:
+
+```yaml
+  - type: SolutionContainerManager
+    solutions:
+      drink:
+        maxVol: 20
+        reagents:
+        - ReagentId: Cola
+          Quantity: 20
+```
+
+`type`: Тип компонента. Всегда должен быть `SolutionContainerManager`.
+`solutions`: Карта имени раствора и `Solution`, описанного ниже.
+
+Растворы имеют несколько полей, все необязательные.
+`maxVol`: Максимальный объём раствора, который он может вместить. Как только сумма Quantity реагентов достигает `maxVol`, больше реагентов добавить нельзя. Он полон.
+`reagents`: Список `Reagent`, которые он должен содержать по умолчанию. Каждый `Reagent` имеет строку `ReagentId` и `Quantity`, которая является FixedPoint2 (в основном число с плавающей точкой, ограниченное двумя десятичными знаками).
+
+## Возможности и указание целевого раствора
+
+С введением `SolutionContainerManager` больше нет простого соответствия 1:1 между сущностью и списком реагентов.
+Каждый `SolutionContainerManager` может содержать любое количество растворов. Чтобы решить эту проблему, вместо флага Capabilities был введён набор компонентов, подобных Capability. Каждый такой компонент имеет строку `solution`, которая сообщает `SolutionContainerManager`, какой раствор он обрабатывает.
+
+Вот их список:
+- `DrainableSolutionComponent` для растворов, которые можно легко удалить через любой контейнер реагентов. Например, слив воды из водяного бака.
+- `DrawableSolutionComponent` для растворов, которые можно набрать шприцами. Например, люди или флаконы с резиновыми крышками.
+- `ExaminableSolutionComponent` для растворов, которые можно осмотреть рукой.
+- `FitsInDispenserComponent` отмечает, что компонент подходит для диспенсера, и сообщает ReagentDispenser/ChemMaster, какой раствор обрабатывать.
+- `InjectableSolutionComponent` для растворов, в которые можно вводить шприцами.
+- `RefillableSolutionComponent` для растворов, которые можно легко добавлять.
+
+Другие компоненты, такие как `DrinkComponent` или `FoodComponent`, могут иметь специальные предопределённые растворы, которые они обрабатывают и ожидают увидеть. Например, `DrinkComponent` попытается создать раствор `drink`, если нет легкодоступного `DrainableSolutionComponent`.
+
+## Пример Раствора
+Вот полный пример сущности с некоторыми растворами:
+
+```yaml
+- type: entity
+  id: DrinkColaCan
+  name: space cola
+  description: Освежающий напиток.
+  components:
+  - type: Sprite
+    sprite: Objects/Consumable/Drinks/cola.rsi
+  - type: SolutionContainerManager
+    solutions:
+      drink:
+        reagents:
+        - ReagentId: Cola
+          Quantity: 20
+        maxVol: 20
+  - type: Drink    
+```

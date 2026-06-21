@@ -1,0 +1,81 @@
+---
+title: "Разное"
+---
+
+## Misc
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>explain &lt;command run&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> [none]`
+</div>
+</div>
+Выводит в консоль разбор потока выполнения указанной команды.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>stopwatch &lt;command run&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> [none]`
+</div>
+</div>
+Выводит в консоль время выполнения указанной команды.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>search &lt;query&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<FormattedMessage>`
+</div>
+</div>
+Выполняет простой строковый поиск по входным данным с подсветкой совпадений.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>help</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> [none]`
+</div>
+</div>
+Выводит текст помощи в консоль.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>more</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> object?`
+</div>
+</div>
+Возвращает содержимое переменной `$more`. `$more` автоматически присваивается оболочкой, когда ей приходится обрезать сообщение из-за его длины.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>buildinfo</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> [none]`
+</div>
+</div>
+Выводит информацию о сборке игры (название игры, версия движка, commit сборки, хеш манифеста) в консоль.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>cmd:moo</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> string`
+</div>
+</div>
+Самая важная команда.

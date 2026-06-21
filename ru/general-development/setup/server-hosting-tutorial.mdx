@@ -1,0 +1,419 @@
+﻿---
+title: "Руководство по хостингу сервера"
+---
+
+Хостинг локального sandbox-сервера для экспериментов прост, но настройка большого production-сервера, поддерживающего сотни игроков, немного сложнее. Это руководство организовано по «уровням», соответствующим сложности.
+
+## Уровень 0: Локальный Sandbox-сервер
+
+`dmonish danger title="Pre-Packaged сборки сервера не должны использоваться для пользовательского контента"
+Единственные изменения, которые вы можете внести в готовую сборку сервера, — это файл `server_config.toml`.
+Если вы хотите изменить сервер, добавив свой собственный контент или правила, вам понадобится [proper development environment](./setting-up-a-development-environment) с вашими изменениями, а затем [собрать свою собственную сборку](#level-2-server-with-custom-code). В противном случае это, вероятно, приведёт к неработающему серверу, и мы не сможем оказать поддержку по таким вопросам.
+`
+
+1. (Только Windows) Загрузите и установите [Latest Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version). (Решает проблему «Unable to load DLL libsodium» и подобные ошибки)
+2. Загрузите и установите [.NET 10 Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) в левой нижней колонке. Убедитесь, что вы загружаете версию `x64`, если у вас Intel/AMD (или загружаете Intel-сервер для использования на Apple Silicon Mac) или `arm64` для Snapdragon/Apple Silicon (M1, M2, M3 и т.д.) для вашей ОС. Убедитесь, что вы НЕ устанавливаете «ASP.NET core Runtime»; вам нужен «.NET Runtime». На Linux рекомендуется использовать пакетный менеджер вашего дистрибутива (apt, dnf, pacman и т.д.) для поиска и установки dotnet.
+3. Загрузите последнюю **стабильную** версию сервера с [нашей страницы сборок](https://wizards.cdn.spacestation14.com/fork/wizards) или, если вы ищете последние **тестовые/vulture** сборки, загрузите с [этой страницы](https://wizards.cdn.spacestation14.com/fork/wizards-testing/) для вашей ОС. Если вы ищете другой форк, спросите у этого форка, есть ли у них страница сборок сервера. В противном случае обратитесь к разделу [Custom Code](#level-2-server-with-custom-code) ниже.
+4. Извлеките загруженный zip-архив в какую-нибудь директорию; вы можете использовать любую программу для работы с архивами, такую как 7Zip, WinRAR или даже встроенную в вашу ОС.
+5. (Только Mac и Linux) Запустите chmod +x Robust.Server [в терминале внутри папки, куда вы извлекли сервер](#running-the-server-on-macos-or-linux). Это нужно сделать только один раз и каждый раз при загрузке нового обновления сервера.
+6. Запустите un_server.bat (Windows) или ./Robust.Server [через терминал на macOS/Linux](#running-the-server-on-macos-or-linux) и ждите, пока в окне консоли не появится «Ready». НЕ закрывайте окно консоли, пока не закончите играть на сервере.
+7. Откройте лаунчер Space Station 14 и нажмите `Direct Connect To Server`, введите `localhost` в качестве IP-адреса и нажмите connect. Вы также можете добавить его в избранное, нажав кнопку `Add Favorite` с тем же IP-адресом.
+8. (Опционально) Когда выйдет новое обновление, вернитесь ко 2-му шагу и скопируйте папку `data` и `server_config.toml` (если вы его изменяли) из ваших старых файлов сервера в новые, если хотите перенести сохранённые данные, такие как персонажи и время игры, со старого сервера.
+
+Если у вас возникли проблемы с пониманием того, на что нажимать, вот короткое видео. Субтитры содержат дополнительную информацию, если необходимо.
+
+<iframe src="https://www.youtube.com/embed/IDBqrAGZ3cA" loading="lazy" style={{width: "100%", aspectRatio: "16/9", border: "none", borderRadius: "8px"}}></iframe>
+
+## Уровень 1: Пригласите друзей
+
+Вам нужно будет выполнить несколько дополнительных шагов, если вы хотите, чтобы другие люди могли подключаться и играть.
+
+### Проброс портов
+
+Серверу необходимо, чтобы сетевые порты были проброшены, чтобы люди могли подключаться. По умолчанию игровой сервер использует два порта:
+* UDP 1212 используется для основного игрового netcode. Это необходимо, чтобы *клиент* мог подключиться к серверу. Это можно настроить с помощью переменной конфигурации 
+et.port.
+* TCP 1212 — это HTTP API статуса. Это также необходимо, чтобы *лаунчер* мог подключиться к серверу. Это не нужно для подключения через голый клиент. Это можно настроить с помощью переменной конфигурации status.bind (которая принимает строку вида *:1212 или 127.0.0.1:3000).
+
+Для получения дополнительной информации о том, как пробросить порты и что делать, если у вас возникли проблемы, см.: [Port Forwarding](../../server-hosting/port-forwarding)
+
+После проброса портов вы можете использовать [этот сайт](https://www.whatismyip.com/) для получения вашего публичного IP-адреса. Если у вас есть и IPV4, и IPV6, попробуйте оба, если один не работает.
+
+Дайте этот адрес друзьям и скажите им использовать Direct Connect. Если проброс портов выполнен правильно, они смогут подключиться.
+
+<Info>
+Если у вас IPV6-адрес (выглядит примерно так `fd11:5ee:bad:c0de::ab3:3d03`), не забудьте добавить квадратные скобки (`[fd11:5ee:bad:c0de::ab3:3d03]`) при подключении через Direct Connect.
+</Info>
+
+### Настройка конфигурации сервера
+
+Вы можете настроить параметры сервера, отредактировав конфигурационный файл server_config.toml. Файл конфигурации — TOML, который по сути является INI ~~но лучше специфицирован, несколько более мощный, проще для неправильного использования и более раздражающе требовательный (комментариям НУЖНА отдельная строка)~~.
+
+Настройки имеют один ключ, под который они подпадают, а затем имя. Так что если я говорю game.lobbyenabled, это идёт под заголовок [game] вот так:
+`	oml
+[game]
+lobbyenabled = true
+`
+
+Понятно? Хорошо.
+
+**Некоторые разумные настройки по умолчанию, которые вы, возможно, захотите установить для вашего сервера, если вы намерены размещать его должным образом:**
+
+<Warning>
+Пожалуйста, прочитайте комментарии здесь, чтобы иметь чёткое представление о том, что вы делаете.
+</Warning>
+
+`	oml
+[net]
+# Reducing tickrate to 30 is basically unnoticeable
+# but reduces server, client and network load dramatically.
+tickrate = 30
+
+[game]
+# Changes the name of the server as it appears in the lobby and launcher.
+hostname = "Foo Station"
+# Enables the lobby instead of straight up throwing clients into a game.
+lobbyenabled = true
+
+[auth]
+# Enforces authentication so that ALL connecting clients must have a proper account.
+# Otherwise, guest logins are allowed.
+# Possible values here are: 0 (optional), 1 (required), 2 (disabled)
+mode = 1
+`
+
+См. [Config File Reference](../tips/config-file-reference) для более подробного руководства по конфигурации сервера.
+
+### Привилегии администратора
+
+По умолчанию никакие привилегии администратора не установлены. Привилегированный администратор может выдавать разрешения другим админам с помощью консольной команды permissions в игре, но здесь есть проблема курицы и яйца. Чтобы получить начальные привилегии администратора +HOST на вашем сервере, вы можете использовать один из следующих трёх методов:
+
+<Danger>
+Привилегии +HOST **чрезвычайно опасны** и должны выдаваться только людям, у которых уже есть доступ к вашему компьютеру или серверу.
+
+**Предоставление кому-либо +HOST позволяет им полностью захватить ваш сервер и/или компьютер.**
+</Danger>
+
+* Если вы подключаетесь к игровому серверу через localhost (IP 127.0.0.1 или ::1), игра автоматически выдаст вам полные привилегии хоста. Это можно отключить с помощью CVar console.loginlocal.
+* Если вы установите CVar console.login_host_user на ваше имя пользователя, вы получите host при подключении.
+* Вы можете использовать команду promotehost из консоли сервера (например, promotehost PJB), чтобы временно выдать host подключённому клиенту.
+
+## Уровень 2: Сервер с пользовательским кодом
+Вам нужно будет [настроить среду разработки](./setting-up-a-development-environment), чтобы создать сборку сервера с пользовательским кодом. После этого можете продолжать.
+
+Затем вам нужно будет собрать сам инструмент упаковки:
+
+dotnet build Content.Packaging --configuration Release
+
+Затем вы можете использовать Packager для выполнения сложной работы. Команда ниже упакует сервер, используя hybrid-acz (чтобы лаунчер мог загрузить ваш пользовательский контент) для 64-битных Linux-систем. Если вы хотите сделать это для Windows, замените `linux-x64` на `win-x64`. Если у вас процессор ARM64, замените `x64` на `arm64`. Список доступных целевых платформ приведён в [этой статье](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog#known-rids). (Примечание: не все цели поддерживаются. Нужны как минимум 64 бита.)
+
+dotnet run --project Content.Packaging server --hybrid-acz --platform linux-x64
+
+<Info>
+Обратите внимание, что если вы используете старый сервер до появления Content Packaging или вам нужно использовать устаревший скрипт (больше не поддерживается), используйте это:
+python Tools/package_server_build.py --hybrid-acz
+</Info>
+
+Проверьте папку elease/ для упакованного сервера вашей пользовательской кодовой базы. Теперь вы можете следовать шагам из [уровня 0](#level-0-local-sandbox-server), пропустив шаг 3, так как у вас уже есть zip сервера. (Вы можете игнорировать файл клиента).
+
+## Уровень 3: «Production» сервер
+
+Это, конечно, не будет обрабатывать автоматические перезапуски (в случае сбоя) или обновления, как это делает watchdog. Это также не опубликует ваш сервер публично в хабе, так как реклама по умолчанию отключена. Если вы хотите, чтобы ваш сервер был указан в хабе, пожалуйста, прочитайте «Bare Server Configuration» ниже.
+
+Для других служб, таких как SS14.Watchdog, вам ТАКЖЕ понадобится [ASP .NET Core 10 Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (входит в .NET 10 SDK).
+
+### Установка правил
+По умолчанию сервер не имеет правил. Чтобы установить собственные правила для вашего сервера:
+
+1. Форкните проект, если вы ещё этого не сделали (это также означает [настройку среды разработки](./setting-up-a-development-environment))
+2. Добавьте файл guidebook с вашими правилами в директорию Resources/ServerInfo/Guidebook/ServerRules. Следуйте формату DefaultRules.xml
+3. Добавьте entry prototype guidebook в Resources/Prototypes/Guidebook/rules.yml, указывающий на созданный вами текстовый файл guidebook.
+4. Установите CCVar server.rules_file на ID, который вы задали в prototype guidebook на предыдущем шаге.
+
+### Публичный хаб-сервер — добавление сервера в список лаунчера
+
+1. Прочитайте [правила хаб-сервера](../../community/space-wizards-hub-rules) перед размещением сервера в хабе. Реклама в хабе означает принятие правил хаба.
+
+2. Выберите теги для вашего сервера на основе [стандартных тегов](../../robust-toolbox/server-http-api#standard-tags).
+
+3. Добавьте следующие строки в вашу [конфигурацию сервера](../tips/config-file-reference):
+
+    `	oml
+    [hub]
+    advertise = true
+    # Uncomment to change the server URL advertised on the master server list.
+    # Use this if you want an ss14s:// URL or have configured the server behind a reverse proxy or any of that.
+    # Defaults to "ss14://[public server IP]:networking port"
+    # server_url = "ss14://..."
+    tags = "" # comma separated list of tags
+    `
+Если вы получили ошибку при попытке рекламы, пожалуйста, прочитайте [раздел устранения неполадок ниже](#Troubleshooting)
+
+### Конфигурация сборки голого сервера
+
+Если вы хотите настроить более постоянный сервер, вам придётся самостоятельно размещать загрузки клиента. Подойдёт любое место, доступное по обычному URL.
+
+Вам нужно отредактировать конфигурационный файл сервера (server_config.toml), добавив в него следующее:
+
+`	oml
+[build]
+# Download locations of the entire client build in a zip, as a HTTP (or HTTPS) URL.
+download_url = ""
+`
+
+### Настройки производительности
+
+Вот некоторые настройки, которые вы, вероятно, захотите включить на вашем сервере для улучшения производительности:
+
+Переменная окружения для включения полного динамического PGO, что значительно улучшает производительность за счёт незначительного увеличения времени запуска:
+`
+DOTNET_TieredPGO: 1
+DOTNET_TC_QuickJitForLoops: 1
+DOTNET_ReadyToRun: 0
+`
+
+Переменная окружения для включения операций AVX по всей кодовой базе. В зависимости от вашего процессора, это может ухудшить производительность вместо улучшения; в противном случае может улучшить производительность atmos.
+`
+ROBUST_NUMERICS_AVX: true
+`
+
+Вы можете установить переменные окружения из watchdog, см. ниже.
+
+## Уровень 4: Production Watchdog-сервер
+
+Это для людей, запускающих свою собственную кодовую базу и сервер, и/или тех, кто хочет более надёжное решение для хостинга.
+
+[SS14.Watchdog](https://github.com/space-wizards-federation/SS14.Watchdog/) (кодовое имя Ian) — это наша обёртка для хостинга сервера, похожая на TGS для BYOND (но гораздо проще на данный момент). Она обрабатывает автообновления, мониторинг, автоматические перезапуски и администрирование. Мы рекомендуем использовать это для правильного развёртывания.
+
+### Установка
+[Обратитесь сюда](https://docs.spacestation14.com/en/server-hosting/setting-up-ss14-watchdog.html) для инструкций по сборке и настройке Watchdog.
+
+### Конфигурация сборки сервера
+
+Лаунчеру необходимо загрузить клиентский бинарный файл, чтобы запустить игру. Он получает информацию об этом клиентском бинарном файле от игрового сервера через API информации.
+
+Информация, возвращаемая из этого API, настраивается двумя способами: переменные конфигурации uild.json и uild.*.
+
+uild.json — это файл, который автоматически помещается рядом с исполняемым файлом сервера системой сборки. Так сервер узнаёт, что такое информация о сборке, при простой загрузке голого zip сервера. (обратите внимание, что это НЕ делается с помощью package_release_build.py, так как он полагается на дополнительную информацию о сборке. gen_build_info.py делает это отдельным шагом)
+
+Второй вариант — указание переменных конфигурации (из командной строки или конфигурационного файла, оба работают):
+
+`	oml
+[build]
+# "Identifier" of your codebase. This is used by the launcher to manage installations.
+# Try to keep this unique between different codebases.
+# Nothing will break if you don't (or if there's a malicious actor),
+# but the launcher WILL be forced to redownload files more often than otherwise necessary.
+fork_id = ""
+
+# Version string of the current build running on the server.
+# This just prompts the launcher to redownload if it's different.
+version = ""
+
+# Version of the engine to download.
+# Engine versions are hosted by us and will probably stay up forever.
+# At least, as long as they are not found to be vulnerable to any security exploits, then we may pull them.
+engine_version = ""
+
+# Download locations of the entire client build in a zip, as a HTTP/HTTPS URL.
+download_url = ""
+
+# SHA256 hash of client zip files specified above.
+hash = ""
+`
+
+Обратите внимание, что SS14.Watchdog указывает *большую часть* за вас, если вы настроили его с автообновлением (в зависимости от провайдера обновлений). Он не может предоставить engine_version или ork_id version, так что лучше указать первое в build.json (ваша система сборки должна быть не мусорной для этого), а второе в конфигурационном файле.
+
+## Уровень 5: Большой Production-сервер
+Вещи, которые не обязательны для маленьких/частных серверов, но настоятельно рекомендуются для форков или крупных production-серверов.
+
+### Продвинутый проброс портов
+
+Вы можете разместить HTTP API статуса за обратным прокси, если хотите. Это рекомендуется для production-серверов, так как тогда вы можете использовать HTTPS (разместите за nginx и включите HTTPS). Обратите внимание, что если вы это сделаете, вам нужно установить переменную конфигурации status.connectaddress, чтобы указать UDP-адрес, к которому должен подключаться основной netcode. Это должно выглядеть так: udp://server.spacestation14.io:1212 (для нашего сервера; очевидно, подставьте свои параметры).
+
+### Настройка PostgreSQL
+
+SS14 использует SQL-базу данных для хранения данных сервера, таких как слоты игроков. По умолчанию автоматически используется база данных **SQLite**, которой достаточно для локального тестирования и небольших серверов. Если вы хотите иметь возможность разделять базу данных между несколькими серверами, сервер также поддерживает подключение к **PostgreSQL**.
+Поддержка MySQL/MariaDB в настоящее время не планируется, но мы принимаем contributions.
+
+Соответствующие свойства конфигурации со значениями по умолчанию:
+
+`	oml
+# Server config file
+[database]
+# Database type to use. Can be "sqlite" or "postgres" currently.
+engine = "sqlite"
+
+# Path to store the database at when using SQLite. Note that is NOT a disk path.
+# This is relative to the server data directory, which is specified by --data-dir when starting the server from the command (or automatically set by SS14.Watchdog)
+sqlite_dbpath = "preferences.db"
+
+# PostgreSQL database configuration, should be self explanatory.
+pg_host = "localhost"
+pg_port = 5432
+pg_database = "ss14"
+pg_username = ""
+pg_password = ""
+`
+
+Игровой сервер автоматически выполняет миграции при запуске, вам не нужно делать их вручную.
+
+### Метрики Prometheus
+
+SS14 поддерживает хостинг сервера метрик, который [Prometheus](https://prometheus.io/) может собирать (scrape), после чего вы можете создавать красивые графики в [Grafana](https://grafana.com/) и подобных инструментах. Вы можете найти наши дашборды Grafana [здесь](../../community/infrastructure-reference/grafana-dashboards), если они окажутся полезными.
+
+Для настройки используйте следующие переменные конфигурации:
+
+`	oml
+[metrics]
+enabled = true
+# Address to bind the metrics server to, use "*" for all local interfaces
+host = "localhost"
+# Port to bind the metrics server to
+port = 44880
+`
+
+Затем вы можете собирать это с помощью следующей конфигурации Prometheus (например):
+
+`yml
+global:
+  scrape_interval: 1s
+  evaluation_interval: 1s
+
+scrape_configs:
+  - job_name: "wizards_den_us_west"
+    static_configs:
+      - targets: ["localhost:44880"]
+`
+
+### Логирование Loki
+
+SS14 также поддерживает отправку структурированных логов в [Loki](https://grafana.com/oss/loki/). Для этого не требуется настройка Promtail. SS14 отправляет напрямую в Loki.
+
+Для настройки используйте следующие переменные конфигурации:
+
+`	oml
+[loki]
+enabled = true
+# HTTP address of the Loki server.
+address = "http://localhost:3100"
+# Name of this server, gets included in all log messages.
+name = "wizards_den_us_west"
+# Parameters for HTTP Basic authentication, if you have Loki configured behind it.
+# If left out, no authentication will be attempted.
+# username = ""
+# password = ""
+`
+
+### Политика конфиденциальности
+
+<Warning title="Это не юридическая консультация">
+Эта функциональность и документация предоставляются только на условиях «best-effort». Мы намерены максимально упростить для хостинг-провайдеров соблюдение юридических требований, но ничто здесь не заменяет разговора с настоящим юристом, если до этого дойдёт.
+</Warning>
+
+Лаунчер имеет возможность отображать запрос политики конфиденциальности, когда игрок пытается подключиться к вашему серверу, если это настроено. Это желательно для всех крупных серверов.
+
+Как это работает: игровой сервер предоставляет три параметра, которые лаунчер проверяет как можно раньше во время рукопожатия соединения:
+
+* Link: ссылка на HTTP(S) URL, где размещена ваша политика конфиденциальности.
+* Identifier: уникальное значение, идентифицирующее политику конфиденциальности конкретной группы серверов, чтобы однозначно её отличать.
+* Version: уникальное значение, идентифицирующее версию вашей политики конфиденциальности, чтобы можно было распознать изменения.
+
+Для настройки укажите следующие три CVar в вашей конфигурации:
+
+`	oml
+[status]
+privacy_policy_link = "https://example.com/privacy"
+# Set this to a unique value for your server community.
+# DO NOT COPY PASTE THIS.
+privacy_policy_identifier = "example_server_identifier"
+# This can be anything, but a date may be the most humanly meaningful.
+# Change it every time you update your privacy policy!
+privacy_policy_version = "2024-11-30"
+`
+
+#### Детали
+
+<Info>
+Этот раздел предоставлен, чтобы помочь вам лучше понять, как лаунчер взаимодействует с вашим игровым сервером, когда эта функция включена.
+</Info>
+
+Когда игрок впервые подключается к вашему серверу с включённой системой, ему будет показана ссылка на политику конфиденциальности и возможность принять или отклонить её.
+
+* Если они нажимают на ссылку, политика конфиденциальности открывается в их браузере.
+* Если они нажимают «Принять», лаунчер продолжает обычные процедуры подключения (загрузка ресурсов, запуск клиента, подключение к игровому серверу и т.д.)
+* Если они нажимают «Отклонить», соединение немедленно прерывается. В этом сценарии с вашим сервером произойдёт не более одного HTTP GET к конечной точке API /info.
+
+Если они нажимают «Принять», согласие (на основе identifier и version) сохраняется в базе данных лаунчера, и их больше не будут запрашивать позже.
+
+Если вы измените параметр version позже, игрокам снова будет показан тот же диалог, но с другим текстом, чётко указывающим, что политика конфиденциальности была обновлена с момента последнего принятия.
+
+## Устранение неполадок (Troubleshooting)
+
+### Не удаётся рекламировать в хаб / люди не могут подключиться
+
+Люди не могут подключиться к вашему серверу, ИЛИ вы получаете следующую ошибку в консоли сервера:
+
+`
+[ERRO] hub: Error status while advertising server: [UnprocessableEntity] "Unable to contact status address"
+`
+
+Это означает, что ваш сервер недоступен из внешнего интернета. Убедитесь, что вы следовали руководству по [Port Forwarding](../../server-hosting/port-forwarding).
+
+### Блокировка интернета в стране (auth/hub)
+
+В некоторых странах (например, Россия) в настоящее время действуют интернет-блокировки, которые могут мешать подключению вашего сервера к службам хаба. Если это проблема, вы можете попробовать установить следующие свойства конфигурации для использования запасных служб:
+
+`	oml
+[auth]
+server = "https://auth.fallback.spacestation14.com/"
+
+[hub]
+hub_urls = "https://hub.fallback.spacestation14.com/"
+`
+
+Эти конфигурации не влияют на игроков; лаунчер и игровой клиент по умолчанию используют запасные варианты, где это возможно.
+
+### SS14.Watchdog
+
+#### Сервер постоянно перезапускается каждые 30 секунд
+
+Это означает, что сервер неправильно общается с watchdog, и watchdog вынужден предполагать, что сервер завис или что-то подобное. Это происходит, если BaseUrl в конфигурации watchdog установлен неправильно или недоступен для игрового сервера.
+
+#### System.IO.FileNotFoundException: Could not load file or assembly 'Mono.Posix.NETStandard, Version=1.0.0.0, Culture=neutral (...)
+
+Текущая рабочая теория заключается в том, что это вызвано неправильными настройками dotnet publish.
+Следующий набор результатов тестов должен помочь объяснить.
+
+`
+dotnet publish -c Release -r linux-x64 --no-self-contained SS14.Watchdog -o test
+ RESULT: Mono.Posix.NETStandard.dll included, System.dll not included (as expected)
+
+dotnet publish -c Release -r linux-x64 SS14.Watchdog -o test
+ RESULT: Mono.Posix.NETStandard.dll included, System.dll included
+
+dotnet publish -c Release SS14.Watchdog -o test
+ RESULT: Mono.Posix.NETStandard.dll not included, System.dll not included
+`
+
+Поскольку Watchdog использует Mono.Posix.NETStandard.dll для пометки исполняемых файлов как исполняемых на Linux и Mac OS X, важно, чтобы он присутствовал в этих ОС.
+
+### Запуск сервера на MacOS или Linux
+
+Откройте терминал в распакованной директории сборки (там должен быть файл Robust.Server).
+Введите ./Robust.Server и нажмите Enter. Если вы видите много вывода на экране и нет сообщений об ошибке, сервер работает.
+
+### Дополнительное устранение неполадок
+
+[Troubleshooting](../tips/troubleshooting-faq#server)
+
+## Полезные ссылки
+Все важные ссылки с этой страницы в одном удобном месте.
+* [Config Reference](../tips/config-file-reference)
+* [.NET 10 Runtime](https://dotnet.microsoft.com/download) (Also included in full .NET 10 SDK)
+* [ASP.NET Core 10 Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (Also included in full .NET 10 SDK)
+* [SS14.Watchdog](https://github.com/space-wizards-federation/SS14.Watchdog/)
+* [Official Builds](https://central.spacestation14.io/builds/wizards/builds.html)
+* [Wizard's Den Infrastructure Reference](../../community/infrastructure-reference/wizards-den-infrastructure) (server specs)
+* [Public Hub Server Rules](../../community/space-wizards-hub-rules)
+* [Port Forwarding](../../server-hosting/port-forwarding)

@@ -1,0 +1,358 @@
+---
+title: "Разработка"
+---
+
+Этот раздел предназначен для разработчиков, желающих создавать собственные команды Toolshed, и в основном состоит из множества примеров.
+
+## Создание новой команды
+
+Чтобы создать новую команду Toolshed, нужно создать новый класс, который:
+* Наследуется от `ToolshedCommand`
+* Имеет имя, оканчивающееся на "Command"
+* Аннотирован атрибутом `ToolshedCommandAttribute`
+* Содержит один или несколько (не статических) методов, аннотированных атрибутом `CommandImplementationAttribute`.
+
+Минимальный рабочий пример, определяющий команду `foo`:
+```cs
+[ToolshedCommand]
+public sealed class FooCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public void Bar()
+    {
+    }
+}
+```
+В предыдущем примере имя команды автоматически берётся из имени класса — имя метода не имеет значения. То есть класс `FooCommand` отображается в `foo`. Альтернативно, имя команды можно указать через атрибут класса, например `[ToolshedCommand(Name = "foo")]`. Если имя указано явно, имя класса не **обязано** заканчиваться на "Command", но это всё равно хорошее соглашение.
+
+<Note title="Соглашение об именовании">
+Автоматически генерируемые имена команд можно настроить для использования snake_case в каждом проекте. Поэтому для поддержки преобразования имён классов в CamelCase следует избегать имён классов с аббревиатурами, содержащими последовательные заглавные буквы. Например, используйте `GetNpcCommand` вместо `GetNPCCommand`, так как последнее будет преобразовано в "get_n_p_c".
+</Note>
+
+## Аргументы и возвращаемые значения
+Чтобы определить команду, возвращающую значение, которое можно передать в другую команду, достаточно задать методу возвращаемый тип. Чтобы добавить команде аргументы, просто добавьте параметры в метод. Например:
+```cs
+[ToolshedCommand]
+public sealed class FooCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public string Bar(string text, float number, EntityUid entity, BodyType physicsBodyType)
+    {
+        return $"{text}, {number}, {entity}, {physicsBodyType}";
+    }
+}
+```
+```
+> foo "A!" 42 10 Dynamic
+A!, 42, 10, Dynamic
+
+> foo "A!" 42 10 Dynamic | join ", suffix" 
+A!, 42, 10, Dynamic, suffix
+```
+
+Любой аргумент метода, не имеющий атрибута (и не являющийся типом `IInvocationContext`), считается обычным аргументом команды и будет пытаться быть распарсен из строки команды в Toolshed. При желании их также можно явно аннотировать атрибутом `CommandArgumentAttribute`.
+
+Toolshed также поддерживает методы с опциональными аргументами и `params []`. Например:
+```cs
+[ToolshedCommand]
+public sealed class SumCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public int Sum(params int[] values)
+    {
+        return values.Sum();
+    }
+}
+```
+
+## Парсеры аргументов
+Toolshed может парсить любой тип аргумента, для которого есть соответствующая реализация `TypeParser<T>`. Например, строковые аргументы парсятся классом `StringTypeParser : TypeParser<string>`. Парсер отвечает за генерацию опций автодополнения и подсказок для консольной команды. Если тип ещё не поддерживается, вы всегда можете создать собственный парсер.
+
+Если вам нужен больший контроль над тем, как парсится аргумент, или над подсказками автодополнения, вы также можете указать в атрибуте аргумента, что он должен использовать [пользовательский парсер](#пользовательские-парсеры-типов).
+
+## Аргументы с piped вводом
+Чтобы создать команду, способную принимать входные значения, передаваемые от другой команды, нужно добавить аргумент, аннотированный атрибутом `PipedArgumentAttribute`. Например, так создаётся простая команда сложения:
+```cs
+[ToolshedCommand]
+public sealed class AddCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public int Add([PipedArgument] int x, int y)
+    {
+        return x + y;
+    }
+}
+```
+
+```
+> i 2 | add 3
+5
+```
+
+## Инвертируемые команды
+
+Чтобы создать команду, поведение которой можно инвертировать префиксом "not", нужно добавить методу аргумент `bool`, аннотированный атрибутом `CommandInvertedAttribute`. Например, это простая команда для поиска конкретного числа в последовательности:
+```cs
+[ToolshedCommand]
+internal sealed class ContainsintCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public bool Containsint([PipedArgument] IEnumerable<int> input, int value, [CommandInverted] bool inverted)
+    {
+        var result = input.Contains(value);
+        return inverted ? !result : result;
+    }
+}
+```
+
+```
+> i 1 to 5 | containsint 2
+true
+
+> i 1 to 5 | not containsint 2
+false
+```
+
+## Контексты вызова
+
+Если вы хотите создать команду, которая выводит текст в консоль или может читать и записывать переменные Toolshed, ваш метод должен принимать аргумент `IInvocationContext`. Этот аргумент также можно опционально аннотировать атрибутом `CommandInvocationContextAttribute`. Например, это простая команда, выдающая однократные приветствия:
+```cs
+[ToolshedCommand]
+public sealed class HelloCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public void Hello(IInvocationContext ctx)
+    {
+        if (ctx.ReadVar("greeted") is true)
+            return;
+
+        ctx.WriteLine("Hello World!"); // Or WriteMarkup, or WriteError
+        ctx.WriteVar("greeted", true);
+    }
+}
+```
+В настоящее время наиболее распространённым контекстом вызова является `OldShellInvocationContext`, где каждый игрок имеет свой контекст, сохраняющийся между отключениями и переподключениями, но не при перезапуске сервера. Контекст также не является сетевым, поэтому команды, выполняемые на стороне клиента и сервера, используют разные контексты.
+
+## Зависимости
+
+Команды Toolshed поддерживают обычное внедрение зависимостей `EntitySystem` и менеджеров. Если вашей команде нужно работать с трансформами сущностей, вы можете просто добавить обычное поле зависимости в класс, например:
+```cs
+[Dependency] private readonly SharedTransformSystem _sys = default!;
+```
+Базовый класс `ToolshedCommand` уже предоставляет зависимости `ToolshedManager`, `ILocalizationManager` и `IEntityManager`. Он также определяет несколько полезных proxy-методов `IEntityManager` (например, `TryComp<T>`, `Spawn` и т.д.). Таким образом, вы можете писать код, как обычно, внутри `EntitySystem`.
+
+## Множественные реализации и подкоманды
+
+До сих пор все примеры определяли команду с единственным методом реализации. Команды могут иметь более одной реализации, но каждая реализация должна принимать разный piped-тип. Например, так выглядит корректная команда, принимающая как целое число, так и число с плавающей точкой:
+```cs
+[ToolshedCommand]
+public sealed class ToStringCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public string Impl([PipedArgument] int x)
+    {
+        return x.ToString();
+    }
+    
+    [CommandImplementation]
+    public string Impl([PipedArgument] float x)
+    {
+        return x.ToString();
+    }
+}
+```
+
+Однако одно из ограничений Toolshed — комбинация имени команды и типа piped-входа должна быть уникальной. То есть нельзя определить две реализации, принимающие один и тот же piped-тип, но с разными аргументами. Например, это **не** корректный способ определения команды, принимающей либо координаты карты, либо координаты сущности:
+```cs
+public sealed class TpCommand : ToolshedCommand
+{
+    [Dependency] private readonly SharedTransformSystem _sys = default!;
+
+    [CommandImplementation]
+    public void Teleport([PipedArgument] EntityUid uid, EntityUid parent, Vector2 pos)
+    {
+        _sys.SetCoordinates(uid, new EntityCoordinates(parent, pos));
+    }
+
+    [CommandImplementation]
+    public void Teleport([PipedArgument] EntityUid uid, MapId map, Vector2 pos)
+    {
+        _sys.SetCoordinates(uid, _sys.ToCoordinates(new MapCoordinates(pos, map)));
+    }
+}
+```
+
+Это ограничение в основном связано с тем, что Toolshed не смог бы понять, какую команду или аргументы пытаться парсить. Вместо этого, если вы хотите ввести такие варианты команды, нужно использовать **подкоманды**.
+
+В некотором смысле подкоманды — это именованные реализации/методы команды, где имя задаётся через `CommandImplementationAttribute`. Обратите внимание: если команда содержит **любые** именованные реализации, то все они должны быть именованы. Например, наша предыдущая команда может быть исправлена именованием реализаций:
+```cs
+public sealed class TpCommand : ToolshedCommand
+{
+    [Dependency] private readonly SharedTransformSystem _sys = default!;
+
+    [CommandImplementation("ent")]
+    public void Teleport([PipedArgument] EntityUid uid, EntityUid parent, Vector2 pos)
+    {
+        _sys.SetCoordinates(uid, new EntityCoordinates(parent, pos));
+    }
+
+    [CommandImplementation("map")]
+    public void Teleport([PipedArgument] EntityUid uid, MapCoordinates mapCoords)
+    {
+        _sys.SetCoordinates(uid, _sys.ToCoordinates(mapCoords));
+    }
+}
+```
+Это определит подкоманды `tp:ent` и `tp:map`.
+
+<Note title="Соглашение об именовании">
+По соглашению, все новые команды должны использовать snake_case при именовании команд или подкоманд.
+</Note>
+
+## Generics
+
+Команды Toolshed имеют некоторую поддержку C# generics, хотя есть несколько ограничений. Наиболее частый случай использования — когда нужно определить метод, принимающий произвольный piped-тип, и использовать тип входа в качестве generic-аргумента. В этом случае достаточно аннотировать generic-метод атрибутом `TakesPipedTypeAsGenericAttribute`. Например, так частично определяется реальная команда сложения:
+```cs
+public sealed class AddCommand : ToolshedCommand
+{
+    [CommandImplementation, TakesPipedTypeAsGeneric]
+    public T Operation<T>([PipedArgument] T x, T y) where T : IAdditionOperators<T, T, T>
+    {
+        return x + y;
+    }
+}
+```
+
+Атрибут `TakesPipedTypeAsGeneric` также поддерживает извлечение generic-типа, даже если он не напрямую соответствует типу piped-аргумента. Например, если piped-аргумент имеет тип `IEnumerable<T>`, он всё равно может извлечь generic-тип `T` из piped-значения. Например, так работает команда append:
+```cs
+[ToolshedCommand]
+public sealed class AppendCommand : ToolshedCommand
+{
+    [CommandImplementation, TakesPipedTypeAsGeneric]
+    public IEnumerable<T> Append<T>([PipedArgument] IEnumerable<T> x, T y)
+    {
+        return x.Append(y);
+    }
+}
+```
+
+Однако в более сложных ситуациях это, вероятно, не сработает. Например, сигнатура `Foo<T>([PipedArgument] Dictionary<int, List<(T, string)>> input)` скорее всего не сможет извлечь `T` из переданного piped-значения.
+
+Также отсутствует поддержка автоматического определения нескольких generic-аргументов из piped-входа. Если вам нужны команды, использующие более сложные generics, обычно потребуется определить команду с явными аргументами типа.
+
+## Аргументы типа
+
+Если вам нужно создать команду, использующую несколько generic-аргументов или имеющую generics, которые не могут быть автоматически выведены из piped-входа, необходимо использовать явные аргументы типа. При написании shell-команды аргументы типа выглядят как обычные аргументы, но всегда предшествуют любым другим аргументам и используются для определения типов для generic-реализации.
+
+Чтобы ваша команда требовала аргументы типа, нужно переопределить свойство `TypeParameterParsers` команды. Оно должно возвращать массив типов, наследующих от `TypeParser<Type>`, которые будут использоваться для парсинга аргументов типа из строки команды. Поскольку это свойство уровня класса, это означает, что **все** реализации или подкоманды должны требовать одинаковое количество аргументов типа. Вы также можете комбинировать явные аргументы типа с атрибутом `TakesPipedTypeAsGenericAttribute`. Обратите внимание, что автоматически выведенный аргумент типа всегда должен быть последним аргументом типа этой функции.
+
+Например, эти две команды используют явные аргументы типа для вывода синтаксиса C#-подобного вызова метода:
+```cs
+[ToolshedCommand]
+public sealed class FooCommand : ToolshedCommand
+{
+    public override Type[] TypeParameterParsers { get; } = [typeof(TypeTypeParser), typeof(TypeTypeParser)];
+
+    [CommandImplementation]
+    public string Foo<T1, T2>(int x)
+    {
+        return $"Foo<{typeof(T1).Name}, {typeof(T2).Name}>({x})";
+    }
+}
+
+[ToolshedCommand]
+public sealed class BarCommand : ToolshedCommand
+{
+    public override Type[] TypeParameterParsers { get; } = [typeof(TypeTypeParser)];
+
+    [CommandImplementation, TakesPipedTypeAsGeneric]
+    public string Bar<TExplicit, TAuto>([PipedArgument] TAuto x)
+    {
+        return $"Bar<{typeof(TExplicit).Name}, {typeof(TAuto).Name}>({x})";
+    }
+}
+
+```
+
+```
+> foo string int 123
+Foo<String, Int32>(123)
+
+> i 123 | bar string 
+Bar<String, Int32>(123)
+
+> f 1.23 | bar String 
+Bar<String, Single>(1.23)
+```
+
+## Автоматические преобразования типов
+
+Как упоминалось в других разделах документации, Toolshed выполняет некоторые автоматические преобразования типов. Наиболее примечательно: любая команда, ожидающая `IEnumerable<T>`, также примет одиночное значение `T`, так как Toolshed автоматически преобразует его в `IEnumerable<T>` с одним элементом.
+
+Toolshed также автоматически приводит любой тип, реализующий интерфейс `IAsType<T>`. Например, `Entity<T>` реализует `IAsType<EntityUid>`. Таким образом, Toolshed позволит передать вывод `Entity<T>` методу, ожидающему `EntityUid`.
+
+## Пользовательские парсеры типов
+
+Если вы хотите создать метод, использующий пользовательский парсер, вы можете указать его через атрибут `CommandArgumentAttribute` для аргумента. Это полезно, если вам нужен больший контроль над парсингом или опциями/подсказками автодополнения в консоли.
+
+Например, следующий код определяет метод, использующий пользовательский парсер для получения целого числа из двоичной строки. Хотя в данном конкретном случае можно было бы просто сделать аргумент строкой и выполнить преобразование внутри самого метода, но тогда аргумент нужно было бы заключать в кавычки (все строковые аргументы должны быть в кавычках).
+```cs
+[ToolshedCommand]
+public sealed class BinaryCommand : ToolshedCommand
+{
+    [CommandImplementation]
+    public int FromBinary([CommandArgument(typeof(BinaryParser))] int value) => value;
+}
+
+public sealed class BinaryParser : CustomTypeParser<int>
+{
+    public override bool TryParse(ParserContext ctx, out int result)
+    {
+        var binaryText = ctx.GetWord();
+        try
+        {
+            result = Convert.ToInt32(binaryText, 2);
+            return true;
+        }
+        catch
+        {
+            result = 0;
+            return false;
+        }
+    }
+
+    public override CompletionResult? TryAutocomplete(ParserContext ctx, CommandArgument? arg)
+        => CompletionResult.FromHint("<binary number>");
+}
+```
+
+```
+> binary 10101
+21
+```
+
+## Разрешения
+
+<Warning>
+Этот раздел специфичен для SS14, так как RobustToolbox не поставляется с реализацией разрешений для команд.
+</Warning>
+
+Все команды Toolshed должны указывать определённые разрешения для возможности выполнения, и существует интеграционный тест, проверяющий это (`AdminTest.AllCommandsHavePermissions`). Разрешения для команд, определённых в движке, указаны в `/Resources/toolshedEngineCommandPerms.yml`, тогда как команды Content могут получать разрешения путём аннотирования класса команды обычными атрибутами (`AnyCommandAttribute`, `AdminCommandAttribute`). Разрешения нельзя задавать для отдельных подкоманд; все подкоманды должны иметь одинаковые разрешения.
+
+## Автодополнение, подсказки и локализация
+
+Каждая команда Toolshed должна иметь локализованное описание. Ключ для локализованной строки основан на имени (под)команды. Например, `foo` или `foo:bar` использует ключ "command-description-foo" или "command-description-foo-bar". Если имя команды содержит не ASCII-символы, вместо него используется имя класса. Например, команда сложения (+) определена в классе `AddCommand`, поэтому используется ключ "command-description-AddCommand".
+
+Toolshed автоматически генерирует строки помощи для команд в виде сигнатуры метода. Автоматически сгенерированную строку помощи можно переопределить, определив локализованную строку. Например, подсказку для команды `foo` можно переопределить строкой с ключом "command-help-foo".
+
+### Подсказки аргументов
+
+Большинство парсеров аргументов Toolshed автоматически генерируют подсказки автодополнения в консоли при вводе аргументов команды. Например, при вводе аргумента для метода `Foo(int myNumber)` будет сгенерирована подсказка `[myNumber (int)]`. Чтобы переопределить автоматически сгенерированную подсказку, можно определить локализованную строку с ключом "command-arg-hint-foo-myNumber". Если нужен больший контроль над подсказкой или предложениями автодополнения, используйте пользовательский парсер.
+
+## Сообщение об ошибках
+
+TODO
+
+## Блоки команд
+
+TODO

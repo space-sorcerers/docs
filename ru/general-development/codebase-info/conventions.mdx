@@ -1,0 +1,797 @@
+---
+title: "Соглашения"
+---
+
+Существует почти бесконечное количество способов запрограммировать одно и то же, но некоторые способы приведут к отклонению вашего PR.
+
+На этой странице вы узнаете о соглашениях по коду, которые мы выбрали для кодовой базы. Им нужно следовать, если вы хотите, чтобы ваш PR был принят.
+
+См. [Codebase Organization](./codebase-organization) для получения рекомендаций по организации файлов и папок в кодовой базе SS14.
+
+Прочитайте [Pull Request guidelines](./pull-request-guidelines), чтобы узнать, как сделать ваш код более удобным для ревью.
+
+<Info>
+Имейте в виду, что некоторые старые участки кодовой базы могут не следовать этим соглашениям. В будущем они должны быть отрефакторены. Весь новый код должен стараться следовать этим соглашениям как можно точнее.
+</Info>
+
+# Общие соглашения по программированию
+
+Эти соглашения не специфичны для Space Station 14, и вы должны следовать им независимо от того, над каким проектом работаете. Любой опытный программист должен знать их наизусть.
+
+## Не копипастите код
+
+Если вы смотрите на другой код и думаете «я хочу сделать то же самое»: **НЕ КОПИРУЙТЕ** его. Создайте новую функцию или абстракцию, которая позволит переиспользовать как можно больше кода.
+
+Копипаст кода — это огромная проблема для поддержки, так как в будущем, если кому-то понадобится обновить скопированный код, ему придётся делать это в *двух* местах (и знать, что эти *два места* вообще существуют).
+
+Конечно, есть места, где вы можете думать, что «копипаст» неизбежен. Например, базовая структура создания `EntitySystem`, который что-то делает, всегда включает определение класса, несколько зависимостей, `override void Initialize()` и так далее. Такого рода «boilerplate» нормально копировать, так как этого действительно не избежать.
+
+## Не используйте магические строки/числа
+
+Это своего рода подмножество «не копипастите код». «Магическое» значение — это любое значение в коде (строка или число), которое должно быть именно *этим* конкретным значением, потому что оно должно совпадать с каким-то другим значением в другом месте.
+
+Суть в том, чтобы «сделать практически невозможным несовпадение двух значений, которые должны совпадать», будь то через ошибку компилятора, провал юнит-теста, гарантированный краш при запуске и т.д.
+
+В простейшем случае такие магические значения следует хранить в `const` или `static readonly`, которые используются из нескольких мест, чтобы компилятор C# гарантировал их одинаковость. Если вам нужно сослаться на ID prototype из C#, вы должны определить ID prototype в `static readonly ProtoId<T>`, поскольку наш инструмент валидации гарантирует, что ID в этих полях всегда действительны.
+
+## Комментарии
+
+- Комментируйте код на высоком уровне, чтобы объяснить *что* код делает, и что более важно, *почему* код делает то, что он делает.
+
+- При документировании классов, структур, методов, свойств/полей и членов класса используйте [XML docs](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/xmldoc/). DataFields и публичные методы должны быть задокументированы всегда.
+    - Пример:
+  ```csharp
+      /// <summary>
+      /// Resets the InteractCounter on the <see cref="FooComponent"/>.
+      /// </summary>
+      /// <remarks>
+      /// This is a public method other systems can call to interact with FooComponent!
+      /// Remember that public methods should always use docstring.
+      /// </remarks>
+      [PublicAPI]
+      public void ResetInteractCounter(Entity<FooComponent?> ent)
+  ```
+
+### Почему, а не Что
+
+Некоторые люди слепо следуют «комментируй почему, а не что» и считают, что «код должен быть самодокументируемым, а комментарии — крайняя мера». Ниже мы приводим несколько примеров, которые, надеемся, изменят ваше мнение.
+
+#### Пример 1
+
+```csharp
+var fractionalPressureChange = Atmospherics.R * (outlet.Air.Temperature / outlet.Air.Volume + inlet.Air.Temperature / inlet.Air.Volume);
+```
+
+Все переменные названы самодокументируемо (*R* — это газовая постоянная, и физические конвенции существовали задолго до компьютеров, так что это соответствует конвенции). Очевидно, что комментарий *не* должен быть:
+
+```csharp
+// Take R and multiply it by the ratio of outlet temperature divided by outlet air volume and add it to ...
+var fractionalPressureChange = Atmospherics.R * (outlet.Air.Temperature / outlet.Air.Volume + inlet.Air.Temperature / inlet.Air.Volume);
+```
+
+Потому что это лишь объясняет, что код буквально делает, что можно понять из любого беглого прочтения. **Однако у вас всё ещё нет ни малейшего понятия, что этот код делает и почему**, даже если код самодокументируем.
+
+Вы не знаете, откуда взялась эта магическая формула, что она пытается сделать или даже верна ли она. Следовательно, это необходимо задокументировать:
+
+```csharp
+// We want moles transferred to be proportional to the pressure difference, i.e.
+// dn/dt = G*P
+
+// To solve this we need to write dn in terms of P. Since PV=nRT, dP/dn=RT/V.
+// This assumes that the temperature change from transferring dn moles is negligible.
+// Since we have P=Pi-Po, then dP/dn = dPi/dn-dPo/dn = R(Ti/Vi - To/Vo):
+var dPdn = Atmospherics.R * (outlet.Air.Temperature / outlet.Air.Volume + inlet.Air.Temperature / inlet.Air.Volume);
+```
+
+#### Пример 2
+
+```csharp
+if (HasComp<MindContainerComponent>(uid))
+    return;
+
+// more stuff
+```
+
+Очевидно, этот код пропускает «more stuff», если сущность, представленная *uid*, уже имеет MindContainerComponent. Этот код настолько самодокументируем, насколько это возможно; он буквально просто делает return, если есть MindContainer. Что нужно задокументировать — это *почему* этот код должен пропускать *uid* с уже имеющимся MindContainerComponent:
+
+```csharp
+// Don't let players who drink cognizine be eligible for a ghost takeover
+if (HasComp<MindContainerComponent>(uid))
+    return;
+```
+
+## Строки и идентификаторы
+
+Человекочитаемый текст никогда не должен использоваться в качестве идентификатора и наоборот. В одном направлении это означает, что нельзя помещать человекочитаемый текст (результат функций локализации) в ключи словаря, сравнивать с `==` и т.д. В другом направлении это означает «никогда не показывать `Enum.ToString()` пользователю напрямую».
+
+Это позволяет избежать путаницы, когда их неизбежно приходится разделять по разным причинам, и избегает неэффективности и багов при сравнении человекочитаемых строк.
+
+Пример:
+
+```csharp
+private void UpdateDisplay(Gender gender)
+{
+    // This can't be localized! And the capitalization is kinda weird!
+    // Don't do this!
+    GenderLabel.Text = gender.ToString();
+
+    // This is good!
+    GenderLabel.Text = Loc.GetString($"gender-{gender}");
+}
+```
+
+### Инвариантные сравнения человекочитаемых строк
+
+Если вы делаете диалог фильтрации/поиска, используйте `CurrentCulture` для сравнения человекочитаемых строк. Не используйте инвариантные культуры.
+
+## Свойства
+
+В сеттере свойства значение свойства всегда должно буквально становиться переданным `value`. Никак не так:
+
+```csharp
+public string Name
+{
+    get => _name;
+    private set => _name = Loc.GetString(value);
+}
+```
+
+## Правильный порядок членов в типе
+
+При расположении содержимого типа вы **всегда** должны помещать поля выше всех остальных членов экземпляра. При чтении кода лучший способ ознакомиться с ним — посмотреть на данные, с которыми он работает. Если поля и другие члены смешаны случайным образом, понять код может быть гораздо сложнее.
+
+Для этого правила авто-свойства (например, `string FooBar { get; set; }`) считаются полями, так как у них есть внутреннее поле. Не-авто-свойства (например, `string FooBar => _field.Trim();`) не считаются, поэтому не должны смешиваться.
+
+Плохо:
+
+```csharp
+class FooBar
+{
+    private int _field;
+
+    public void Update() {
+        _field *= 2;
+        Counter += 1;
+    }
+
+    public int Counter { get; set; }
+}
+```
+
+Хорошо:
+
+```csharp
+class FooBar
+{
+    private int _field;
+    public int Counter { get; set; }
+
+    public void Update() {
+        _field *= 2;
+        Counter += 1;
+    }
+
+}
+```
+
+# Проектные соглашения
+
+Эти соглашения специфичны для Space Station 14. Они могут касаться кода или систем, нерелевантных для других проектов, или у других проектов может быть иное мнение о стиле кода.
+
+## Расположение файлов
+
+1. Начинайте с [using directives](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/using-directive) в верхней части файла.
+
+2. Все классы должны быть явно указаны в namespace. Используйте [file-scoped namespaces](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-10.0/file-scoped-namespaces), например один `namespace Content.Server.Atmos.EntitySystems;` перед определениями классов вместо `namespace Content.Server.Atmos.EntitySystems { /* class here */ }`.
+
+3. Всегда размещайте все поля и авто-свойства перед любыми методами в определении класса.
+
+## Методы
+
+### Переносы строк в списках параметров/аргументов
+
+Если вы определяете функцию, и объявления параметров настолько длинные, что не помещаются на одной строке, разбейте их так, чтобы было **один параметр на строку**. Допускается некоторая гибкость для тесно связанных пар параметров, таких как координаты X/Y и указатель/длина в C API.
+
+Плохо:
+
+```csharp
+public void CopyTo(ISerializationManager serializationManager, SortedDictionary<TKey, TValue> source, ref SortedDictionary<TKey, TValue> target,
+    SerializationHookContext hookCtx, ISerializationContext? context = null)
+```
+
+Хорошо:
+
+```csharp
+public void CopyTo(
+    ISerializationManager serializationManager,
+    SortedDictionary<TKey, TValue> source,
+    ref SortedDictionary<TKey, TValue> target,
+    SerializationHookContext hookCtx,
+    ISerializationContext? context = null)
+```
+
+## Константы и CVars
+Если у вас есть определённое значение, например целое число, вы обычно должны делать его либо:
+* константой (const), если оно никогда не должно изменяться
+* CVar, если оно должно быть настраиваемым
+
+Это нужно, чтобы другим было понятно, что это такое. Это особенно важно, если одно и то же значение используется в нескольких местах, чтобы код был более поддерживаемым.
+
+## Prototypes
+
+### Поля данных Prototype
+Не кэшируйте prototypes, используйте prototypeManager для их индексации, когда они нужны. Вы можете хранить их по их ID. При использовании полей данных, содержащих строки ID prototype, используйте ProtoId`<T>`. Например, поле данных для списка ID prototype должно выглядеть так:
+```csharp
+[DataField]
+public List<ProtoId<ExamplePrototype>> ExampleTypes = new();
+```
+
+### Enums vs Prototypes
+Использование enums для игровых типов *крайне не рекомендуется*.
+Всегда используйте prototypes вместо enums.
+Пример: «виды» или «типы» игровых инструментов должны использовать prototypes вместо enums.
+
+## Ресурсы
+
+### Звуки
+При указании полей данных звука используйте `SoundSpecifier`.
+Следует избегать прямого указания путей к звукам и вместо этого использовать `SoundCollectionSpecifier`, когда это возможно.
+
+<Accordion title="Пример кода C# (нажмите, чтобы развернуть)">
+```csharp
+[DataField]
+public SoundSpecifier Sound = new SoundCollectionSpecifier("MySoundCollection");
+```
+</Accordion>
+
+<Accordion title="Пример prototype в YAML (нажмите, чтобы развернуть)">
+```yaml
+# You can define a sound collection like this
+- type: soundCollection
+  id: MySoundCollection
+  files:
+  - /Audio/Effects/Cargo/ping.ogg
+
+# And use it like this
+- type: MyComponent
+  sound:
+    collection: MySoundCollection
+```
+</Accordion>
+
+### Спрайты и текстуры
+При указании полей данных спрайта или текстуры используйте `SpriteSpecifier`.
+
+<Accordion title="Пример кода C# (нажмите, чтобы развернуть)">
+```csharp
+[DataField]
+public SpriteSpecifier Icon = SpriteSpecifier.Invalid;
+```
+</Accordion>
+
+<Accordion title="Пример prototype в YAML (нажмите, чтобы развернуть)">
+```yaml
+# You can specify a specific texture file like this, /Textures/ is optional
+- type: MyComponent
+  icon: /Textures/path/to/my/texture.png
+
+# /Textures/ is optional and will be automatically inferred, however make sure that you don't start the path with a slash if you don't specify it
+- type: MyComponent
+  icon: path/to/my/texture.png
+
+# You can specify an rsi sprite like this
+- type: MyOtherComponent
+  icon:
+    sprite: /Textures/path/to/my/sprite.rsi
+    state: MySpriteState
+```
+</Accordion>
+
+<Accordion title="RSI meta.json (нажмите, чтобы развернуть)">
+- Порядок полей должен быть: `version -> license -> copyright -> size -> states`.
+- JSON не должен быть минифицирован и должен следовать обычным правилам качества JSON (египетские скобки и т.д.). Все новые JSON-файлы должны иметь отступ в 4 пробела. Существующие файлы следует изменить на отступ в 4 пробела, если вы их модифицируете (исправляйте по ходу). Никогда не используйте табуляцию для отступов.
+
+Пример:
+
+```json
+{
+    "version": 1,
+    "license": "CC-BY-SA-3.0",
+    "copyright": "Taken from tgstation at commit https://github.com/tgstation/tgstation/commit/547852588166c8e091b441e4e67169e156bb09c1",
+    "size": {
+        "x": 32,
+        "y": 32
+    },
+    "states": [
+        {
+            "name": "icon"
+        },
+        {
+            "name": "equipped-BACKPACK",
+            "directions": 4
+        },
+        {
+            "name": "inhand-left",
+            "directions": 4
+        },
+        {
+            "name": "inhand-right",
+            "directions": 4
+        }
+    ]
+}
+```
+</Accordion>
+
+### EntityUid в логах
+При использовании `EntityUid` в логах для администраторов используйте метод `IEntityManager.ToPrettyString(EntityUid)`.
+
+<Accordion title="Пример лога админа с сущностями (нажмите, чтобы развернуть)">
+```csharp
+// If you're in an entity system...
+_adminLogs.Add(LogType.MyLog, LogImpact.Medium, $"{ToPrettyString(uid)} did something!");
+
+// If you're not in an entity system...
+_adminLogs.Add(LogType.MyLog, LogImpact.Medium, $"{entityManager.ToPrettyString(uid)} did something!");
+```
+</Accordion>
+
+### Опциональные сущности
+Если вам нужно передавать «опциональные» сущности, используйте nullable `EntityUid`.
+Никогда не используйте `EntityUid.Invalid` для обозначения отсутствия `EntityUid`, всегда используйте `null` с nullable, чтобы у нас были проверки во время компиляции.
+Например: `EntityUid? uid`
+
+## Компоненты
+
+### Модификаторы доступа к данным компонента
+Все данные в компонентах должны быть публичными.
+
+### Сеттеры свойств компонентов
+В свойствах не должно быть сеттеров с какой-либо логикой. Вместо этого создайте метод сеттера в вашей entity system и примените атрибут `[Friend(...)]` к компоненту, чтобы только эта система могла его изменять.
+Ваш компонент может использовать свойства с логикой сеттера для *интеграции с ViewVariables* (пока у нас не появится лучшая система).
+
+### Ограничения доступа к компонентам
+Атрибут `[Access(...)]` позволяет указать, какие типы могут читать или изменять данные в вашем классе, запрещая всем остальным типам изменять их.
+
+Компоненты должны указывать свои ограничения доступа, когда это возможно, обычно разрешая изменять свои данные только entity systems, которые их оборачивают.
+
+### Наследование Shared Component
+Если shared component наследуется серверным и клиентским аналогами, он должен быть помечен как *abstract*.
+
+## Entity Systems
+
+### Игровая логика
+Игровая логика всегда должна быть в entity systems, а не в компонентах.
+Компоненты должны *только* хранить данные.
+
+### Proxy Methods
+Когда возможно, старайтесь использовать [proxy methods](https://github.com/space-wizards-federation/RobustToolbox/blob/master/Robust.Shared/GameObjects/EntitySystem.Proxy.cs) из `EntitySystem` вместо использования свойства `EntityManager`.
+
+<Accordion title="Примеры (нажмите, чтобы развернуть)">
+```csharp
+// Without proxy methods...
+EntityManager.GetComponent<MetaDataComponent>(uid).EntityName;
+
+// With proxy methods
+Name(uid);
+
+// Without proxy methods...
+EntityManager.GetComponent<TransformComponent>(uid).Coordinates;
+
+// With proxy methods
+Transform(uid).Coordinates;
+```
+</Accordion>
+
+### Сигнатура публичного API метода
+Все публичные методы Entity System API, которые имеют дело с сущностями и игровой логикой, *всегда* должны следовать очень конкретной структуре.
+
+Все соответствующие `Entity<T?>` и `EntityUid` должны идти первыми.
+`T?` в `Entity<T?>` означает тип компонента, необходимый от сущности.
+Вопросительный знак `?` должен присутствовать в конце, чтобы пометить тип компонента как nullable.
+Затем должны идти любые аргументы, которые вы хотите.
+
+Первое, что вы должны сделать в теле метода — вызвать `Resolve` для UID сущности и компонентов.
+
+<Accordion title="Пример (нажмите, чтобы развернуть)">
+```csharp
+public void SetCount(Entity<StackComponent?> stack, int count)
+{
+    // This call below will set "Comp" to the correct instance if it's null.
+    // If all components were resolved to an instance or were non-null, it returns true.
+    if(!Resolve(stack, ref stack.Comp))
+        return; // If the component wasn't found, this will log an error by default.
+
+    // Logic here!
+}
+```
+</Accordion>
+
+Хелпер `Resolve` выполняет несколько полезных проверок. В режиме `DEBUG` он проверяет, действительно ли переданная ссылка на компонент (если не null) принадлежит указанной сущности.
+
+Этот хелпер также по умолчанию логирует ошибку, если у сущности отсутствует какой-либо из компонентов, которые вы пытались разрешить.
+Это логирование ошибки можно отключить, передав `false` в аргумент `logMissing` хелпера. Вы можете отключить логирование ошибок для разрешения опциональных компонентов, методов с паттерном `TryX` и т.д.
+
+Обратите внимание, что хелпер `Resolve` также имеет перегрузки для разрешения 2, 3 или даже 4 компонентов одновременно.
+Если вам нужно разрешить компоненты для нескольких сущностей или более 4 компонентов для одной сущности, вам нужно будет выполнить несколько вызовов `Resolve`.
+
+### Extension Methods
+
+Extension methods (те, у которых есть явный `this` для первого аргумента) никогда не должны использоваться на любых классах, напрямую связанных с симуляцией — это означает `EntityUid`, компоненты или entity systems. Extension methods на `EntityUid` используются по всей кодовой базе, однако это плохая практика, и их следует заменять на публичные методы entity system.
+
+### Зависимости от других систем
+Внутри entity system предпочтительнее использовать dependency на систему вместо разрешения системы через IoCManager. Например, вместо:
+
+```csharp
+var random = IoCManager.Resolve<IRobustRandom>();
+random.Prob(0.1f);
+```
+
+Добавьте dependency на entity system:
+
+```csharp
+[Dependency] private readonly IRobustRandom _random = default!;
+_random.Prob(0.1f);
+```
+
+## События
+
+### Method Events vs Entity System Methods
+Method Events — это события, которые вы вызываете, когда хотите выполнить определённое действие. Пример:
+```csharp
+// This would change the damage on the entity by 10.
+RaiseLocalEvent(uid, new ChangeDamageEvent(10));
+```
+С другой стороны, Entity System Methods — это методы, которые вы вызываете у систем для выполнения действия.
+```csharp
+// This would change the damage on the entity by 10.
+EntitySystem.Get<DamageableSystem>().ChangeDamage(uid, 10);
+```
+
+Method Events *запрещены*, всегда используйте Entity System Methods вместо них.
+Однако есть исключение.
+
+Вы можете использовать Method Events при условии, что они обёрнуты в Entity System Method.
+В примере выше это означало бы, что `DamageableSystem.ChangeDamage()` внутренне вызывает `ChangeDamageEvent`, который затем обрабатывается любыми подписчиками...
+
+<Info>
+Убедитесь, что отписка от событий происходит при выключении систем. Proxy-методы, такие как `Subs.CVar()` или `SubscribeLocalEvent`, уже заботятся об этом. Обратите внимание, что не нужно отписываться внутри менеджеров, так как их время жизни гарантирует, что при их выключении остальная часть клиента/сервера также выключается, что делает отписку ненужной.
+</Info>
+
+### Именование событий
+- Всегда добавляйте суффикс `Event` к вашим событиям.
+  Пример: `DamagedEvent`, `AnchorAttemptEvent`...
+
+- Всегда называйте ваш обработчик событий так: `OnXEvent`
+  Пример: `OnDamagedEvent`, `OnAnchorAttemptEvent`...
+
+### Struct by-ref events
+События всегда должны быть struct, а не class, и всегда должны вызываться по ref. Если возможно, они также должны быть readonly, если это применимо.
+У них также должен быть атрибут [ByRefEvent].
+
+На практике это выглядит так:
+```cs
+var ev = new MyEvent();
+RaiseLocalEvent(ref ev);
+```
+
+### C# Events vs EventBus Events
+EventBus обычно следует использовать вместо C# events, где это возможно. C# events могут вызывать утечки, особенно при использовании с компонентами, которые могут быть созданы или удалены в любое время.
+
+C# events следует использовать для событий вне симуляции, таких как события UI.
+Однако не забывайте *всегда* отписываться от них!
+
+### Async vs Events
+Для таких вещей, как DoAfter, всегда используйте события вместо async.
+
+Async для любого кода игровой симуляции следует избегать любой ценой, так как он обычно «заразен», не может быть сериализован (в случае DoAfter, например) и обычно приводит к неприятному коду.
+События, с другой стороны, хорошо вписываются в остальную архитектуру игры, и хотя они не так удобны в написании, они определённо гораздо более легковесны.
+
+## UI
+
+### XAML и UI, определённые в C#
+Вы всегда должны использовать XAML вместо UI, полностью определённых в коде C#.
+Расширение существующих UI на C# допустимо, но они должны быть конвертированы в будущем.
+
+## Производительность
+
+### Iterator Methods vs возврат коллекций
+Всегда используйте [iterator methods](https://docs.microsoft.com/en-us/dotnet/csharp/iterators) вместо создания новой коллекции и её возврата в вашем методе.
+
+Однако имейте в виду, что iterator methods выделяют много памяти.
+Если вам нужно минимизировать выделения, используйте struct iterators.
+
+### Sealed Classes
+Ваш класс должен быть помечен как `abstract`, `static`, `sealed` или `[Virtual]`. Это необходимо, чтобы случайно не сделать классы наследуемыми, когда они не должны быть, и может немного улучшить производительность при доступе или вызове виртуальных членов.
+
+Используйте `sealed`, если класс не должен наследоваться, `[Virtual]` для обычного поведения C# (отключает предупреждение компилятора), `static` для классов, которые не нужно инстанцировать, или `abstract`, если класс предназначен для наследования, но не для самостоятельного инстанцирования.
+
+### События вместо обновлений
+Где возможно, ваша система должна выполнять код в ответ на событие, а не обновляться каждый тик. Ваш код может занимать всего 0.5% времени CPU, но когда 100 систем делают это — это уже излишне.
+
+### Захват переменных
+При использовании [лямбд](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/operators/lambda-expressions) или [локальных функций](https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/local-functions) обязательно **избегайте захвата переменных**.
+
+Если вы добавляете метод, который принимает [Func delegate](https://docs.microsoft.com/en-us/dotnet/api/system.func-2), убедитесь, что есть перегрузка, которая **позволяет вызывающему передавать собственные данные**.
+
+<Accordion title="Пример того, как не надо (нажмите, чтобы развернуть)">
+```csharp
+void DoSomething(EntityUid otherEntity)
+{
+    // This is BAD. It will allocate on the heap a lot.
+    var predicate = (EntityUid uid)
+        => uid == otherEntity;
+
+    // This method doesn't allow us to pass custom data,
+    // so we're forced to do a costly variable capture.
+    MethodWithPredicate(predicate);
+}
+
+void MethodWithPredicate(Func<EntityUid, bool> predicate)
+{
+    // We do something with the predicate here...
+}
+```
+</Accordion>
+
+<Accordion title="Пример того, как надо (нажмите, чтобы развернуть)">
+```csharp
+void DoSomething(EntityUid otherEntity)
+{
+    // This is good and much more performant than the example before.
+    var predicate = (EntityUid uid, EntityUid otherUid)
+        => uid == otherUid;
+
+    // Pass our custom data to this method.
+    MethodWithPredicate<EntityUid>(predicate, otherEntity);
+}
+
+// This method allows you to pass custom data into the predicate.
+void MethodWithPredicate<TState>(Func<EntityUid, TState, bool> predicate, TState state)
+{
+    // We do something with the predicate here, making sure to pass "state" to it...
+}
+```
+</Accordion>
+
+## Field Deltas
+
+Field deltas позволяют отправлять по сети только определённые поля компонента вместо всего состояния. Это делается добавлением `fieldDeltas: true` в ваш атрибут `AutoGenerateComponentState`:
+
+```csharp
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState(fieldDeltas: true)]
+public sealed partial class MyComponent : Component
+{
+    [DataField, AutoNetworkedField]
+    public bool IsActive;
+
+    [DataField, AutoNetworkedField]
+    public int Value;
+}
+```
+
+### Когда использовать field deltas
+
+Field deltas отлично подходят, когда:
+- Ваш компонент имеет поля, которые меняются с разной скоростью
+- Обычно изменяется только подмножество полей
+- У вас много сетевых полей, и вы не хотите отправлять их все каждый раз
+
+Хорошее эмпирическое правило: если у вас 3+ поля и они часто изменяются независимо, рассмотрите field deltas. Для компонентов с 1–2 полями обычно проще их пропустить.
+
+### Пометка полей как изменённых
+
+Когда вы изменяете поле и хотите отправить по сети только его, используйте `DirtyField` вместо `Dirty`:
+
+```csharp
+// Instead of this:
+comp.IsActive = true;
+Dirty(uid, comp);  // Would send ALL networked fields
+
+// Do this:
+comp.IsActive = true;
+DirtyField(uid, comp, nameof(MyComponent.IsActive));  // Only sends IsActive
+```
+
+Для компонента с множеством полей, где обычно изменяется только одно или два, field deltas могут снизить сетевой трафик на 80–90%. Чем больше у вас полей, тем больше вы выиграете от field deltas.
+
+Даже для компонентов с 3–4 полями, если они изменяются независимо (например, одно поле обновляется часто, другие редко), field deltas всё ещё могут быть полезны.
+
+Field deltas добавляют небольшие накладные расходы на отслеживание изменений полей, но это обычно компенсируется экономией пропускной способности. Генератор автоматически обрабатывает большую часть сложности реализации.
+
+## TimeSpans
+
+### Использование TimeSpans
+
+Вы всегда должны использовать `TimeSpan` вместо `float` для определения статических периодов времени, таких как интервалы. Циклы обновления должны сравнивать с `CurTime` вместо накопления `frametime`.
+
+### Обработка приостановленных сущностей
+
+При работе с полями `TimeSpan`, которые изменяются во время выполнения (например, таймеры или отсчёты), вам нужно правильно обрабатывать приостановку сущностей. SS14 предоставляет два важных механизма для этого.
+
+### AutoGenerateComponentPause и AutoPausedField
+
+Атрибуты `[AutoGenerateComponentPause]` и `[AutoPausedField]` работают вместе, чтобы автоматически корректировать поля `TimeSpan` при возобновлении сущности:
+
+- `[AutoGenerateComponentPause]` применяется к классу компонента и автоматически генерирует код для обработки возобновления.
+- `[AutoPausedField]` применяется к отдельным полям `TimeSpan` внутри этого компонента, которые должны быть скорректированы при возобновлении сущности.
+
+Эти атрибуты **всегда** должны использоваться для свойств `DataField` типа `TimeSpan`, которые изменяются другими системами во время выполнения, например, таймеры или перезарядки.
+
+<Accordion title="Пример использования (нажмите, чтобы развернуть)">
+```csharp
+[RegisterComponent, AutoGenerateComponentPause]
+public sealed partial class CooldownComponent : Component
+{
+    [DataField, AutoPausedField]
+    public TimeSpan CooldownEnd;
+
+    [DataField, AutoPausedField]
+    public TimeSpan? OptionalTimer;
+}
+```
+</Accordion>
+
+### TimeOffsetSerializer
+
+`TimeOffsetSerializer` используется для сериализации значений `TimeSpan`, которые смещены относительно текущего игрового времени.
+
+- Он автоматически смещает `TimeSpan` на текущее игровое время во время сериализации/десериализации
+- Если сущность приостановлена, используется время, на которое сущность была приостановлена, как точка отсчёта
+- Он предотвращает непреднамеренное сохранение временных смещений на картах во время маппинга (prototypes всегда сериализуются как ноль)
+
+Подобно `AutoPausedField`, `TimeOffsetSerializer` всегда должен использоваться для полей `TimeSpan`, изменяемых во время выполнения, которые представляют абсолютное время, а не длительность.
+
+<Accordion title="Пример использования (нажмите, чтобы развернуть)">
+```csharp
+[DataField(customTypeSerializer: typeof(TimeOffsetSerializer))]
+public TimeSpan NextActivationTime;
+```
+</Accordion>
+
+## Именование
+
+### Shared типы
+Shared типы должны иметь префикс `Shared` только в том случае, если существуют серверные и/или клиентские унаследованные типы с тем же именем.
+
+Пример:
+- Если `FooComponent` существует только в shared, ему не нужен префикс.
+- Если `BarComponent` существует в shared, server и client, shared тип должен иметь префикс `Shared`: `SharedBarComponent`.
+
+## Физика
+
+### Anchoring
+
+Всегда используйте anchoring `TransformComponent` через методы системы.
+Вы можете использовать anchoring статического тела `PhysicsComponent`, но *только* если вы знаете, что делаете, и можете обосновать свой выбор перед anchoring через transform.
+
+## Соглашения по YAML
+
+- Каждый `- type` компонента должен быть вместе без пустых строк между ними
+- Разделяйте prototypes одной пустой строкой.
+- Поля `name:` и `description:` никогда не должны иметь кавычек, если только пунктуация в имени/описании не требует их использования; в этом случае используйте ''. Например:
+```yaml
+  name: 'Spessman's Smokes packet'
+  description: 'A label on the packaging reads, 'Wouldn't a slow death make a change?''
+```
+- Не указывайте текстуры в абстрактных prototypes/родителях.
+- Объявляйте первый блок prototype в таком порядке: `type` > `abstract` > `parent` > `id` > `categories` > `name` > `suffix` > `description` > `components`.
+- Используйте инлайн-списки для categories и обычные списки для всего остального:
+  ```yaml
+  - type: entity
+    parent: [ PartHuman, BaseHead ] # Inline list
+    id: Headhuman
+    components:
+    - type: Tag
+      tags: # Regular list
+      - Head
+  ```
+- Новые компоненты не должны иметь отступа при добавлении в секцию `components:`.
+  Так
+    ```yaml
+    components:
+    - type: Sprite
+      state:
+    ```
+  Не так
+    ```yaml
+    components:
+      - type: Sprite
+        state:
+    ```
+- То же правило применяется к любому другому списку или словарю, например:
+    ```yaml
+    - type: Tag
+      tags:
+      - HighRiskItem # Correct indentation
+
+    - type: Tag
+      tags:
+        - HighRiskItem # Wrong indentation
+    ```
+- Когда это имеет смысл, размещайте более общие/движковые компоненты ближе к верху списка компонентов, а более специфичные — ближе к низу. Например,
+    ```yaml
+    components:
+    - type: Sprite # Engine-specific
+    - type: Physics
+    - type: Anchorable # Content, but generalized
+    - type: Emitter # A component for a specific type of item
+    ```
+
+### YAML и именование полей данных
+`PascalCase` используется для ID и имён компонентов.
+Всё остальное, даже имена типов prototype, использует `camelCase`.
+`prefix.Something` НИКОГДА не должен использоваться для ID.
+
+### Сущности
+
+Пожалуйста, структурируйте сущности с компонентами следующим образом для лучшей читаемости YAML:
+
+```
+- type: entity
+  abstract: true # remove this line if not abstract
+  parent: <nameofparent>
+  id:
+  name:
+  components:
+  <rest of file>
+```
+
+#### Суффиксы Entity Prototype
+
+Используйте `suffix` в prototypes; это суффикс только для меню спавна, который позволяет различать prototypes без изменения фактического имени prototype. Вы можете использовать это так:
+![entityprototypesuffixes1.png](/images/general-development/codebase-info/conventions/entityprototypesuffixes1.png)
+
+И в результате получается так:
+![entityprototypesuffixes2.png](/images/general-development/codebase-info/conventions/entityprototypesuffixes2.png)
+
+## Локализация
+Каждая строка, предназначенная для игрока, должна быть локализована.
+
+### Именование ID локализации
+- ID локализации всегда в `kebab-case` и никогда не должны содержать заглавных букв.
+- ID локализации должны быть как можно более специфичными, чтобы избежать пересечения с другими ID.
+  Так
+    ```ftl
+    antag-traitor-user-was-traitor-message = ...
+    ```
+  Не так
+    ```ftl
+    traitor-message = ...
+
+## Внутри симуляции или вне симуляции
+
+<Warning>
+Это соглашение *очень* плохо соблюдается в нашей текущей кодовой базе. Имейте это в виду, если увидите что-то, что, по-видимому, нарушает его.
+</Warning>
+
+В целом, весь код в игре должен быть разделён в зависимости от того, находится ли он *внутри* «симуляции» или *вне* её. «Симуляция» — это всеобъемлющий термин, означающий «содержимое самой игры».
+
+Например, следующие вещи находятся «внутри» симуляции:
+- Практически всё, касающееся сущностей: взаимодействия, физика, atmos и т.д.
+- IC чат
+- Состояние раунда (лобби, игра, после игры)
+
+Следующие примеры находятся «вне» симуляции:
+- OOC чат
+- Adminhelp
+- Голосования админов
+- Практически всё, что общается с внешним сервисом, таким как база данных или Discord webhook
+
+Нам всегда нужны места в коде, где эти две стороны кодовой базы обмениваются данными. (Например, подключение игрока изначально обрабатывается вне симуляции, но симуляцию нужно уведомить о новых игроках, чтобы создать их.) Как именно это должно быть сделано, зависит от конкретного случая, и это может потребовать усилий, но это жизненно важно для архитектуры кода.
+
+Мысленный эксперимент: «должна ли эта логика перестать работать, если игру поставит на паузу админ». Если бы такая кнопка паузы существовала, мы хотели бы полностью остановить игровую логику (время не шло бы, никто не мог бы двигаться и т.д.), но мы всё равно хотели бы, чтобы люди могли подключаться к серверу, общаться в OOC чате, спрашивать админа *почему* игра всё ещё на паузе и так далее.
+
+<Info>
+Игровой сервер в настоящее время уже автоматически делает такую паузу, когда нет онлайн-игроков, для экономии ресурсов. Это не чисто теоретическая ситуация! Но, возможно, её трудно наблюдать в данный момент.
+</Info>
+
+Время в симуляции может ускоряться или замедляться относительно «реального времени» в зависимости от настроек сервера или проблем с производительностью. На клиенте симуляция постоянно совершает путешествия во времени в рамках сетевой предсказуемости. Симуляция фактически не *существует* на клиенте до подключения к серверу!
+
+Вот некоторые различия между тем, как следует писать код внутри симуляции и вне её:
+
+| Вещь, которую вы хотите сделать | внутри симуляции | вне симуляции |
+|-|---------------|-------------------|
+| «Место по умолчанию» для синглтон-кода. | Создайте `EntitySystem` | Используйте manager: создайте новый класс, зарегистрируйте его в IoC и вызывайте из `EntryPoint` или подобного. |
+| Проверка прошедшего времени | `IGameTiming.CurTime` | `IGameTiming.RealTime`, `(R)Stopwatch`, `DateTime` и т.д.
+| Отправка пользовательских сетевых сообщений | Networked entity events | Пользовательские `NetMessage` |

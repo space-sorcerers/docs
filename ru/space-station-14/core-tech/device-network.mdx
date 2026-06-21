@@ -1,0 +1,355 @@
+---
+title: "Device Network"
+---
+
+
+Device networking позволяет машинам и устройствам общаться друг с другом, соблюдая ограничения, такие как дальность или подключение к одной электросети. У игроков также будет возможность взаимодействовать с device network несколькими способами. Например, можно использовать пакетный сниффер в своём PDA *(ещё не реализовано)* для прослушивания сообщений, отправленных по беспроводной сети устройств.
+
+## Краткий Обзор
+Сущности могут присоединиться к сети и получат сетевой адрес. Затем эти сущности могут опционально начать прослушивание на некоторой частоте. Любое устройство в сети может отправлять пакеты на любой частоте (не только на той, которую оно прослушивает). Пакеты могут быть либо широковещательными, либо направленными на конкретный адрес. Фактические пакеты принимают форму ECS событий. Системе нужно просто прослушивать `DeviceNetworkPacketEvent`. Это событие содержит информацию об отправителе и `NetworkPayload`, который по сути является `Dictionary<string, object>`. Содержимое полезной нагрузки и то, как его интерпретировать, просто жёстко закодировано в каждой системе. Некоторые часто используемые строковые ключи определены в `DeviceNetworkConstants.cs`.
+
+### Сетевые id:
+Device Net Ids используются для разделения устройств на разные подсети. Это делается для производительности, организации и чтобы предотвратить взаимодействие игроков с пакетами, с которыми не предполагается взаимодействие.
+
+<Warning>
+Device net id **не определяют**, как устройство подключается к другим устройствам (например, беспроводное). Используйте для этого компоненты.
+</Warning>
+
+ **0 - PRIVATE `netId: Private`**
+    Эта сеть не предназначена для взаимодействия с игроками.
+ 
+ **1 - WIRED `netId: Wired`**
+    Используется для проводных сетей. Предполагается использование с `WiredNetworkComponent`, если устройство не использует пользовательский device net id.
+ 
+ **2 - WIRELESS `netId: Wireless`**
+    Используется для беспроводных сетей. Предполагается использование с `WirelessNetworkComponent`, если устройство не использует пользовательский device net id.
+    
+ **3 - ApcNet `netId: Apc`**
+    Используется для проводных сетей, ограниченных кабелями расширения APC, например, выключатели света. Предполагается использование с `ApcNetworkComponent`, если устройство не использует пользовательский device net id.
+
+ **4 - AtmosDevices `netId: AtmosDevices`**
+   Используется для атмосферных устройств, таких как scrubbers, для их отделения от других сетей.
+
+
+## Компоненты Сетевого Подключения
+Для использования device network нужно добавить DeviceNetworkComponent и компонент для нужного типа подключения. Вы также можете не использовать один из компонентов подключения, если хотите, чтобы устройство всегда могло отправлять и получать сообщения.
+Существуют разные типы компонентов подключения.
+### Device Network Component
+Это обязательный компонент для отправки и получения сообщений device network.
+
+<Accordion title="YAML">
+```yaml
+components:
+- type: DeviceNetwork
+  deviceNetId: <Private|Wired|Wireless|Apc>
+  receiveFrequency: <uint?>
+  receiveFrequencyId: <string?>
+  transmitFrequency: <uint?>
+  transmitFrequencyId: <string?>
+  address: <string>
+  customAddress: <bool>
+  prefix: <string>
+  receiveAll: <bool>
+  autoConnect: <bool>
+  sendBroadcastAttemptEvent: <bool>
+```
+
+**deviceNetId**
+Устанавливает DeviceNetId этого устройства. Если нужно добавить новый, добавьте его в `DeviceNetIdDefaults` в `DeviceNetworkComponent.cs`.
+  По умолчанию 0 (Private).
+
+**receiveFrequency**
+Частота, на которой это подключение получает пакеты. По умолчанию null, в этом случае устройство не будет получать пакеты (хотя всё ещё может их отправлять).
+
+Если ваше устройство не должно возможно прослушивать сообщения, для производительности его следует установить в null. Например, сенсоры костюма каждого игрока будут отправлять пакеты на определённой частоте, но не прослушивают пакеты ни на какой частоте.
+
+**receiveFrequencyId**
+Строка ID для `FrequencyPrototype`. Если это поле не null, то во время инициализации карты `receiveFrequency` компонента будет обновлён в соответствии с частотой прототипа. Эти прототипы — это просто именованные uint. Например, прототип `SuitSensor` следует использовать для всех устройств, связанных с датчиками костюма или монитором экипажа.
+
+**transmitFrequency**
+Это частота по умолчанию, которую устройство будет использовать для передачи пакетов. Она просто используется как аргумент по умолчанию для функции отправки пакета.
+  
+**transmitFrequencyId**
+Как `receiveFrequencyId`, но для `transmitFrequency`
+  
+**address**
+Адрес устройства в сети. Используется для обеспечения постоянства адресов устройств при сохранении или загрузке карты. По умолчанию адреса генерируются автоматически при первом подключении к сети. Если поле address уже заполнено, а запрашиваемый адрес уже занят, будет просто сгенерирован новый адрес.
+  
+**customAddress**
+Указывает, был ли `address` сгенерирован случайным образом при подключении к сети или указан явно. Если адрес является пользовательским, он не будет переопределён автоматически сгенерированными адресами при подключении к сетям.
+
+**prefix**
+Строка префикса, которая добавляется к любым случайно сгенерированным адресам (которые являются просто шестнадцатеричными строками). Полезно для идентификации типа устройства по адресу. Например, все атмосферные венты имеют префикс `Vnt-`.
+  
+**receiveAll**
+Если true, это устройство будет получать все пакеты, отправленные на `receiveFrequency`, а не только те, которые являются широковещательными или направленными на адрес этого устройства. Может использоваться для подслушивания сообщений.
+  
+**autoConnect**
+Определяет, должно ли устройство пытаться присоединиться к сети при инициализации карты. Обычно true, если устройство не было явно отключено от сети, в этом случае оно не должно переподключаться при перезагрузке карты.
+
+**sendBroadcastAttemptEvent**
+Отправляет список получателей широковещательной рассылки отправителю перед отправкой пакета, чтобы его можно было отфильтровать, если установлено `true`.
+По умолчанию `false`.
+</Accordion>
+
+### Wireless Network Component
+Компонент беспроводной сети проверяет, находятся ли устройства в зоне действия друг друга, прежде чем разрешить отправку сообщения.
+
+<Accordion title="YAML">
+Позволяет устройствам отправлять пакеты другим устройствам, если зона действия отправителя достаточно велика.
+
+```yaml
+components:
+- type: DeviceNetworkComponent
+...
+- type: WirelessNetworkConnection
+  range: <int>
+```
+
+**range**
+Дальность, на которой это подключение отправляет и получает данные.
+</Accordion>
+
+### Apc Network Component
+
+<Danger>
+Очень трудно предотвратить соединение APC друг с другом во время мэппинга, и ограничение APC конкретной комнатой или обеспечение подключения всех нужных устройств затруднительно. В будущем этот компонент может быть удалён из-за этого.
+</Danger>
+
+Позволяет устройствам отправлять пакеты друг другу, пока они питаются от одного APC.
+  
+<Accordion title="YAML">
+```yaml
+components:
+- type: DeviceNetworkComponent
+...
+- type: ApcNetworkConnection
+```
+</Accordion>
+
+  
+### Wired Network Component
+
+<Danger>
+В настоящее время он только проверяет, находятся ли устройства на одной сетке. Поведение будет реализовано в будущем.
+</Danger>
+
+{/*Проводной сетевой компонент подключается к проводной сети устройств, которая в настоящее время использует силовые кабели для соединения устройств друг с другом.
+Это означает, что каждое проводное сетевое соединение, подключённое к одному и тому же источнику питания, находится в одной проводной сети.
+*/}
+
+<Accordion title="YAML">
+```yaml
+components:
+- type: DeviceNetworkComponent
+...
+- type: WiredNetworkComponent
+```
+</Accordion>
+
+### Station Limited Network Component
+
+Позволяет устройствам, принадлежащим к одной станции, отправлять и получать пакеты друг другу.
+
+<Accordion title="YAML">
+```yaml
+components:
+- type: DeviceNetworkComponent
+...
+- type: StationLimitedNetwork
+  allowNonStationPackets: <bool>
+```
+
+**allowNonStationPackets**
+Позволяет устройству получать пакеты от устройств, не имеющих компонента `StationLimitedNetwork`.
+</Accordion>
+
+### Device Network Requires Power Component
+
+Предотвращает получение любых пакетов, если устройство не имеет питания.
+
+<Accordion title="YAML">
+```yaml
+components:
+- type: DeviceNetworkComponent
+...
+- type: DeviceNetworkRequiresPower
+```
+</Accordion>
+  
+## Система device network
+
+### События
+Система использует три события для отправки сообщений устройствам:
+
+**BeforeBroadcastAttemptEvent**
+Это событие отправляется сущности, которая собирается отправить широковещательный пакет, если `sendBroadcastAttemptEvent` установлен в true на отправляющем устройстве. Это событие может использоваться для изменения получателей этой рассылки или её отмены.
+
+<Accordion title="ДЕТАЛИ">
+``BeforeBroadcastAttemptEvent(IReadOnlySet<DeviceNetworkComponent> recipients)``
+ 
+ **recipients**
+   Список получателей, которым широковещательная рассылка собирается отправить пакеты.
+ **Property: ModifiedRecipients**
+   Это свойство события, которое можно установить в новый список получателей.
+    Если это свойство равно null, широковещательная рассылка будет отменена.
+</Accordion>  
+  
+**BeforePacketSentEvent**
+Это событие вызывается перед отправкой сообщения device network. На него подписываются другие системы, чтобы предотвратить отправку сообщения.
+<Accordion title="ДЕТАЛИ">
+``BeforePacketSentEvent(EntityUid sender, TransformComponent xform, Vector2 senderPosition)``
+ 
+ **sender**
+   EntityUid сущности, от которой было отправлено сообщение.
+ **xform**
+   Transform component отправителя.
+ **senderPosition**
+   Мировая позиция отправителя.
+</Accordion>
+  
+**DeviceNetworkPacketEvent**
+  Событие, вызываемое непосредственно для сущности при получении сообщения device network.
+<Accordion title="ДЕТАЛИ">
+``DeviceNetworkPacketEvent(ConnectionType netId, string? address, uint frequency, string senderAddress, EntityUid sender, NetworkPayload data)``
+  
+  **netId**
+    Сеть, использованная для отправки пакета.
+ 
+  **address**
+    Адрес, на который был отправлен пакет. Null, если пакет был широковещательным.
+  
+  **frequency**
+    Частота, на которой было отправлено сообщение.
+  
+  **senderAddress**
+    Сетевой адрес device network отправляющей сущности
+  
+  **sender**
+    EntityUid отправителя
+  
+  **data**
+    Отправляемые данные.
+</Accordion>
+
+  
+### Методы
+
+**QueuePacket**
+  Отправляет указанную полезную нагрузку как сообщение device network сущности с указанным адресом и частотой.
+  
+  <Accordion title="ДЕТАЛИ">
+``QueuePacket(EntityUid uid, string? address, NetworkPayload data, uint? frequency = null, int? network = null, DeviceNetworkComponent? device = null)``
+ 
+  **uid**
+    EntityUid отправляющей сущности.
+  
+  **address**
+    Адрес сущности, которой отправляется пакет. Если null, пакет отправляется широковещательно.
+  
+  **data**
+    Отправляемые данные.
+      
+  **frequency**
+    Частота, на которой отправлять данные. Если null, будет использоваться текущая частота передачи устройства.
+
+  **network**
+    ID сети, в которой отправлять.
+</Accordion>
+  
+Система device network содержит больше публичных методов для таких вещей, как установка частоты прослушивания устройства.
+  
+## Класс Network Payload
+Класс network payload содержит данные, отправляемые по сети устройств, которые в конечном итоге могут быть увидены игроком.
+Игрок сможет видеть и манипулировать только примитивными типами, если он может видеть или манипулировать полезной нагрузкой.
+
+Создание network payload:
+```csharp
+var payload = new NetworkPayload
+{
+    ["Key1"] = Value1,
+    ["Key2"] = Value2,
+    ["Key3"] = Value3
+    //...
+};
+```
+
+## Класс констант device network
+Класс DeviceNetworkConstants содержит общие сетевые id и строковые константы для создания network payload. Вы не ограничены использованием id или строковых констант, предоставленных в этом классе, но должны стараться использовать COMMAND, когда это применимо.
+
+При создании network payload старайтесь использовать константы для ключей и значений, которые всегда одинаковы.
+
+Одним из примеров команды и сообщения являются почтовые блоки: `get_mailer_tag` для запроса других блоков и сообщение `mailer_tag` для ответа своим тегом.
+
+### Стандартные константы полезной нагрузки:
+
+ **COMMAND**
+    Ключ, используемый для указания команды/типа полезной нагрузки, например, pda_mail.
+  
+## Примеры:
+### Отправка сетевого сообщения
+
+```csharp
+//Это где-то в верхней части вашей entity system
+[Dependency] private readonly DeviceNetworkSystem _deviceNetworkSystem = default!;
+
+public const string NetCmdPdaMail = "pda_mail";
+public const string NetTargetMail = "target_mail_address";
+public const string NetSenderMail = "sender_mail_address";
+public const string NetMessage = "message";
+...
+//Когда вы хотите отправить сетевое сообщение, вам нужно создать network payload и отправить его с помощью метода QueuePacket DeviceNetworkSystem.
+var payload = new NetworkPayload
+{
+    [DeviceNetworkConstants.COMMAND] = NetCmdPdaMail,
+    //Вы не ограничены использованием DeviceNetworkConstants.COMMAND
+    [NetMessage] = "Привет, Боб, бла бла бла...",
+    [NetTargetMail] = "5525bob@nanotrasen.com",
+    [NetSenderMail] = "7361joe.genero@nanotrasen.com"
+};
+
+_deviceNetworkSystem.QueuePacket(uuidOfCurrentEntity, addressOfMailserverOrSomething, payload);
+```
+Отправляющая сущность должна быть либо предварительно настроена на отправку на почтовой частоте, либо вам нужно будет разрешить прототип почтовой частоты и передать правильную частоту в качестве аргумента.
+
+### Получение и обработка сетевого сообщения
+
+```csharp
+...
+[Dependency] private readonly DeviceNetworkSystem _deviceNetworkSystem = default!;
+
+public const string NetCmdPing = "ping"
+public const string NetMessage = "message";
+
+public override void Initialize()
+{
+    base.Initialize();
+
+		...
+	  SubscribeLocalEvent<DeviceNetworkComponent, DeviceNetworkPacketEvent>(OnPacketReceived);
+		...
+}
+...
+
+private void OnPacketReceived(Entity<DeviceNetworkComponent> ent, ref DeviceNetworkPacketEvent args)
+{
+    //Поскольку мы используем рекомендуемый способ с константой команды, мы пытаемся получить её из полезной нагрузки
+    if (args.Data.TryGetValue(DeviceNetworkConstants.COMMAND, out String command))
+    {
+        //Если эта команда является командой PING (вы можете проверить свою собственную команду здесь)
+        if (command == NetCmdPing)
+        {
+            //Мы создаём полезную нагрузку, содержащую команду ping_response и "Hello World" в качестве сообщения.
+            //(В этом примере я просто передал имя команды как строку вместо создания константы.)
+            var payload = new NetworkPayload
+            {
+                [DeviceNetworkConstants.COMMAND] "ping_response",
+                [NetMessage] = "Hello World"
+            };
+            
+            //И отправляем ответ на этот ping
+            _deviceNetworkSystem.QueuePacket(ent, args.SenderAddress, payload, args.Frequency);
+        }
+    }
+}
+```

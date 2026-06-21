@@ -1,0 +1,86 @@
+---
+title: "Обновление CEF"
+---
+
+CEF (Chromium Embedded Framework) — невероятно проблемная зависимость. Настоящий кошмар. Вот как его обновлять.
+
+## Загрузка последней стабильной сборки CEF
+
+Перейдите [сюда](https://cef-builds.spotifycdn.com/index.html), скачайте последнюю стабильную сборку для Windows 64-bit и Linux 64-bit.
+
+## Обновление Xilium.CefGlue
+
+`Xilium.CefGlue` — это C#-привязка, которую мы используем для CEF API. Они не обновляют upstream слишком часто, но когда это происходит, стоит влить их изменения. При конфликтах нужно принимать ИХ изменения, потому что у нас есть множество правок, которые иначе конфликтуют.
+
+Обновите `CefGlue.Interop.Gen/include` последними заголовками из загруженного вами пакета CEF, затем повторно запустите `gen-cef3.cmd`.
+
+Если в CEF API произошли изменения, возможно, потребуется обновить остальную часть CefGlue для совместимости. Сделайте это.
+
+## Обновление Robust.Natives.Cef
+
+Это NuGet-пакеты, которые поставляют бинарники CEF обычным разработчикам RT/OpenDream, чтобы им не приходилось вручную скачивать CEF.
+
+Клонируйте [`build-dependencies`](https://github.com/space-wizards-federation/build-dependencies). Распакуйте загруженные копии CEF (для обеих платформ) в `natives/cef/`, чтобы структура выглядела так:
+
+![](/images/engine-development/cef-update-build-dependencies.png)
+
+Обрежьте (strip) Linux-бинарники: запустите `strip *.so` в папке `Release/` загруженной Linux-версии. Используйте WSL, если вы на Windows.
+
+Затем обновите `Packages/Robust.Natives.Cef/Robust.Natives.Cef.nuspec`, чтобы файлы соответствовали новой версии CEF. Вам понадобятся файлы из `Release/` и `Resources/` сборки CEF.
+
+Запустите `dotnet pack ./Packages/Robust.Natives.Cef/Robust.Natives.Cef.csproj`, чтобы получить `Packages/Robust.Natives.Cef/bin/Release/Robust.Natives.Cef.<VERSION>.nupkg`.
+
+## Изменение `nuget.config` в тестовом репозитории
+
+Очевидно, вы будете тестировать, верно? Вы не хотите загружать вышеупомянутый нативный пакет в NuGet, если он не работает, но как проверить, что он *работает*? Всё просто — используйте локальный NuGet-источник!
+
+В тестируемом репозитории будет файл `nuget.config` рядом с solution. Он будет выглядеть так (или похоже):
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+  	<add key="nuget" value="https://api.nuget.org/v3/index.json" />
+    <add key="dotnet-eng" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-eng/nuget/v3/index.json" />
+  </packageSources>
+</configuration>
+```
+
+Вы можете сделать NuGet-пакет локально доступным, добавив полный путь к вашей `Packages/Robust.Natives.Cef/bin/Release/` как источник:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+  	<add key="nuget" value="https://api.nuget.org/v3/index.json" />
+    <add key="dotnet-eng" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-eng/nuget/v3/index.json" />
+    <add key="cef" value="E:\ss14\build-dependencies\Packages\Robust.Natives.Cef\bin\Release" />
+  </packageSources>
+</configuration>
+```
+
+## Обновление Robust.Client.WebView
+
+После всех предыдущих шагов вы можете обновить `PackageReference` в `Robust.Client.WebView` до новой версии. После сборки и запуска, *надеюсь*, всё будет работать!
+
+## ТЕСТИРУЙТЕ ВСЁ
+
+У CEF есть неприятная привычка быть огромной зависимостью, которая может ломаться миллионом способов. УБЕДИТЕСЬ, ЧТО ВЫ НИЧЕГО НЕ СЛОМАЛИ.
+
+В частности, протестируйте OpenDream на Windows, Linux и снова через launcher. Для тестирования launcher следуйте инструкции [Тестирование через launcher](./testing-against-launcher). Используйте `Tools/package_webview.py` для создания zip-пакета.
+
+## Загрузка natives в NuGet
+
+Загрузите `Robust.Natives.Cef` на https://www.nuget.org/. Там есть большая кнопка загрузки, используйте её. Это займёт некоторое время, так как весь пакет весит пару сотен мегабайт (ой), но, к счастью, лимитов, насколько я знаю, нет.
+
+## Коммит всего
+
+Зафиксируйте (commit) все изменения в CefGlue, build-dependencies и Robust. Ура!
+
+## Загрузка нового Robust Module на centcomm
+
+* SSH на suns
+* `mkdir /var/lib/robust-builds/modules/Robust.Client.WebView/<rt_version>`
+* `scp release/Robust.Client.WebView* suns:/var/lib/robust-builds/modules/Robust.Client.WebView/<rt_version>`
+* cd `/home/robust-build-push`
+* `./push_module.ps1 Robust.Client.WebView <rt_version>`

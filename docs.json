@@ -456,9 +456,440 @@
         "language": "ru",
         "groups": [
           {
-            "group": "Введение",
+            "group": "Главная",
             "pages": [
               "ru/index"
+            ]
+          },
+          {
+            "group": "Мета",
+            "pages": [
+              "ru/meta/guide-to-editing-docs",
+              "ru/meta/docs-example-page",
+              "ru/meta/docs-are-for-discoverability"
+            ]
+          },
+          {
+            "group": "Основы разработки",
+            "pages": [
+              {
+                "group": "Настройка",
+                "root": "ru/general-development/setup",
+                "pages": [
+                  "ru/general-development/setup/howdoicode",
+                  "ru/general-development/setup/setting-up-a-development-environment",
+                  "ru/general-development/setup/git-for-the-ss14-developer",
+                  "ru/general-development/setup/server-hosting-tutorial"
+                ]
+              },
+              {
+                "group": "Информация о кодбазе",
+                "root": "ru/general-development/codebase-info",
+                "pages": [
+                  "ru/general-development/codebase-info/conventions",
+                  "ru/general-development/codebase-info/pull-request-guidelines",
+                  "ru/general-development/codebase-info/codebase-organization",
+                  "ru/general-development/codebase-info/acronyms-and-nomenclature",
+                  "ru/general-development/codebase-info/releases"
+                ]
+              },
+              {
+                "group": "Советы",
+                "root": "ru/general-development/tips",
+                "pages": [
+                  "ru/general-development/tips/beginner-faq",
+                  "ru/general-development/tips/troubleshooting-faq",
+                  "ru/general-development/tips/debugging-tools",
+                  "ru/general-development/tips/prs-with-engine-changes",
+                  "ru/general-development/tips/writing-guidebook-entries",
+                  "ru/general-development/tips/config-file-reference",
+                  "ru/general-development/tips/yaml-crash-course",
+                  "ru/general-development/tips/forking"
+                ]
+              },
+              {
+                "group": "Feature Proposals",
+                "root": "ru/general-development/feature-proposals",
+                "pages": [
+                  "ru/templates/proposal",
+                  "ru/general-development/feature-proposals/expected-feature-proposal-decorum"
+                ]
+              },
+              "ru/general-development/game-area-design-doc",
+              "ru/general-development/contributing-translations",
+              "ru/general-development/github-moderation-guidelines"
+            ]
+          },
+          {
+            "group": "SS14 By Example",
+            "pages": [
+              "ru/ss14-by-example/introduction-to-ss14-by-example",
+              "ru/ss14-by-example/adding-a-simple-bikehorn",
+              {
+                "group": "Making a Sprite Dynamic",
+                "root": "ru/ss14-by-example/making-a-sprite-dynamic",
+                "pages": [
+                  "ru/ss14-by-example/making-a-sprite-dynamic/porting-appearance-visualizers"
+                ]
+              },
+              "ru/ss14-by-example/basic-networking-and-you",
+              "ru/ss14-by-example/prediction-guide",
+              "ru/ss14-by-example/fluent-and-localization",
+              {
+                "group": "UI and You",
+                "root": "ru/ss14-by-example/ui-and-you",
+                "pages": [
+                  "ru/ss14-by-example/ui-and-you/ui-cookbook"
+                ]
+              },
+              "ru/ss14-by-example/ui-survival-guide",
+              "ru/ss14-by-example/converting-oldbody-to-nubody"
+            ]
+          },
+          {
+            "group": "Robust Toolbox",
+            "pages": [
+              {
+                "group": "ECS",
+                "root": "ru/robust-toolbox/ecs",
+                "pages": [
+                  "ru/robust-toolbox/netcode/net-entities",
+                  "ru/robust-toolbox/netcode/connection-sequence"
+                ]
+              },
+              {
+                "group": "Coordinate Systems",
+                "root": "ru/robust-toolbox/coordinate-systems",
+                "pages": [
+                  "ru/robust-toolbox/transform/entity-coordinates",
+                  "ru/robust-toolbox/transform/physics",
+                  "ru/robust-toolbox/transform/grids"
+                ]
+              },
+              {
+                "group": "Toolshed",
+                "root": "ru/robust-toolbox/toolshed",
+                "pages": [
+                  "ru/robust-toolbox/toolshed/variables",
+                  "ru/robust-toolbox/toolshed/blocks",
+                  "ru/robust-toolbox/toolshed/types",
+                  {
+                    "group": "Commands",
+                    "root": "ru/robust-toolbox/toolshed/commands",
+                    "pages": [
+                      "ru/robust-toolbox/toolshed/commands/emplace",
+                      "ru/robust-toolbox/toolshed/commands/entity-control",
+                      "ru/robust-toolbox/toolshed/commands/general",
+                      "ru/robust-toolbox/toolshed/commands/misc"
+                    ]
+                  },
+                  "ru/robust-toolbox/toolshed/toolshed-examples",
+                  {
+                    "group": "Development",
+                    "root": "ru/robust-toolbox/toolshed/development",
+                    "pages": [
+                      "ru/robust-toolbox/toolshed/toolshed-and-scsi",
+                      "ru/robust-toolbox/toolshed/environments",
+                      "ru/robust-toolbox/toolshed/invocation-contexts"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "User Interface",
+                "root": "ru/robust-toolbox/user-interface",
+                "pages": [
+                  "ru/robust-toolbox/user-interface/containers"
+                ]
+              },
+              {
+                "group": "IoC",
+                "root": "ru/robust-toolbox/ioc",
+                "pages": [
+                  "ru/robust-toolbox/rendering/lighting-and-fov",
+                  "ru/robust-toolbox/rendering/shaders",
+                  "ru/robust-toolbox/rendering/sprites-and-icons"
+                ]
+              },
+              "ru/robust-toolbox/serialization",
+              "ru/robust-toolbox/sandboxing",
+              "ru/robust-toolbox/content-manifests",
+              "ru/robust-toolbox/user-data-directory",
+              "ru/robust-toolbox/robust-modules",
+              "ru/robust-toolbox/server-http-api",
+              "ru/robust-toolbox/build-configurations",
+              "ru/robust-toolbox/preprocessor-defines",
+              "ru/robust-toolbox/midi",
+              "ru/robust-toolbox/acz",
+              "ru/robust-toolbox/asset-packaging",
+              "ru/robust-toolbox/publishing-robusttoolbox",
+              "ru/robust-toolbox/versioning-compatibility"
+            ]
+          },
+          {
+            "group": "Space Station 14",
+            "pages": [
+              {
+                "group": "Core Design",
+                "root": "ru/space-station-14/core-design",
+                "pages": [
+                  "ru/space-station-14/core-design/design-principles"
+                ]
+              },
+              "ru/space-station-14/accessibility",
+              "ru/space-station-14/admin-tools",
+              "ru/space-station-14/art",
+              {
+                "group": "Character/Species",
+                "root": "ru/space-station-14/characters-species",
+                "pages": [
+                  {
+                    "group": "PR Guidelines",
+                    "root": "ru/space-station-14/character-species/guidelines",
+                    "pages": [
+                      "ru/space-station-14/character-species/proposals/vulpkanin"
+                    ]
+                  }
+                ]
+              },
+              "ru/space-station-14/combat",
+              {
+                "group": "Mapping",
+                "root": "ru/space-station-14/mapping",
+                "pages": [
+                  "ru/space-station-14/mapping/guidelines",
+                  {
+                    "group": "Dungeons",
+                    "root": "ru/space-station-14/mapping/dungeons",
+                    "pages": [
+                      "ru/space-station-14/mapping/guides/general-guide"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "Player Interaction",
+                "root": "ru/space-station-14/player-interaction",
+                "pages": [
+                  "ru/space-station-14/player-interaction/cartridge-loaders",
+                  {
+                    "group": "Accent Guidelines",
+                    "root": "ru/space-station-14/player-interaction/accent-guidelines",
+                    "pages": [
+                      "ru/space-station-14/player-interaction/proposals/pda-messaging",
+                      "ru/space-station-14/player-interaction/proposals/grid-inventory"
+                    ]
+                  }
+                ]
+              },
+              "ru/space-station-14/roleplay-lore",
+              {
+                "group": "Roundflow",
+                "root": "ru/space-station-14/round-flow",
+                "pages": [
+                  {
+                    "group": "Antagonists",
+                    "root": "ru/space-station-14/round-flow/antagonists",
+                    "pages": [
+                      "ru/space-station-14/round-flow/antagonists/traitors"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "User Interface",
+                "root": "ru/space-station-14/user-interface",
+                "pages": [
+                  "ru/space-station-14/user-interface/proposals/statpanels",
+                  "ru/space-station-14/user-interface/proposals/playtimereminders"
+                ]
+              },
+              {
+                "group": "Departments",
+                "root": "ru/space-station-14/departments",
+                "pages": [
+                  {
+                    "group": "Atmos",
+                    "root": "ru/space-station-14/departments/atmos",
+                    "pages": [
+                      {
+                        "group": "PR Guidelines",
+                        "root": "ru/space-station-14/departments/atmos/guidelines",
+                        "pages": [
+                          "ru/space-station-14/departments/atmos/atmos-design-choices"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Cargo",
+                    "root": "ru/space-station-14/departments/cargo",
+                    "pages": [
+                      "ru/space-station-14/departments/cargo/proposals/mail-delivery",
+                      {
+                        "group": "Salvage Proposal",
+                        "root": "ru/space-station-14/departments/cargo/proposals/salvage-proposal",
+                        "pages": [
+                          "ru/space-station-14/departments/cargo/proposals/salvage-postmortem"
+                        ]
+                      }
+                    ]
+                  },
+                  "ru/space-station-14/departments/command",
+                  {
+                    "group": "Engineering",
+                    "root": "ru/space-station-14/departments/engineering",
+                    "pages": [
+                      {
+                        "group": "Pow3r",
+                        "root": "ru/space-station-14/departments/engineering/pow3r",
+                        "pages": [
+                          "ru/space-station-14/departments/engineering/engine-containment"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Medical",
+                    "root": "ru/space-station-14/departments/medical",
+                    "pages": [
+                      "ru/space-station-14/departments/medical/medical-workgroup",
+                      "ru/space-station-14/departments/medical/chemistry"
+                    ]
+                  },
+                  {
+                    "group": "Science",
+                    "root": "ru/space-station-14/departments/science",
+                    "pages": [
+                      {
+                        "group": "Anomaly Cores",
+                        "root": "ru/space-station-14/departments/science/anomaly-cores",
+                        "pages": [
+                          "ru/space-station-14/departments/science/proposals/xenoarch-redux",
+                          "ru/space-station-14/departments/science/proposals/xenobio"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Security",
+                    "root": "ru/space-station-14/departments/security",
+                    "pages": [
+                      "ru/space-station-14/departments/security/proposals/genpop-prisoners",
+                      "ru/space-station-14/departments/security/proposals/reduced-metagaming",
+                      "ru/space-station-14/departments/security/proposals/SecDog"
+                    ]
+                  },
+                  {
+                    "group": "Service",
+                    "root": "ru/space-station-14/departments/service",
+                    "pages": [
+                      {
+                        "group": "PR Guidelines",
+                        "root": "ru/space-station-14/departments/service/guidelines",
+                        "pages": [
+                          {
+                            "group": "Plant Genetics",
+                            "root": "ru/space-station-14/departments/service/proposals/plant-genetics",
+                            "pages": [
+                              {
+                                "group": "Librarian Gameplay",
+                                "root": "ru/space-station-14/departments/service/proposals/theshued-librarian-gameplay",
+                                "pages": [
+                                  "ru/space-station-14/departments/service/proposals/joker_roles"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Silicon",
+                    "root": "ru/space-station-14/departments/silicon",
+                    "pages": [
+                      "ru/space-station-14/departments/silicon/proposals/lawset_modification"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "group": "General Proposals",
+            "pages": [
+              "ru/general-proposals/robusthub"
+            ]
+          },
+          {
+            "group": "Серверный хостинг",
+            "pages": [
+              "ru/server-hosting/port-forwarding",
+              "ru/server-hosting/server-replay-recording",
+              "ru/server-hosting/setting-up-robust-cdn",
+              "ru/server-hosting/setting-up-ss14-admin",
+              "ru/server-hosting/setting-up-ss14-changelog",
+              "ru/server-hosting/setting-up-ss14-watchdog",
+              "ru/server-hosting/setting-up-high-bandwidth-transfer",
+              "ru/server-hosting/oauth",
+              {
+                "group": "Настройка интеграции Discord",
+                "root": "ru/server-hosting/setting-up-discord-integration",
+                "pages": [
+                  "ru/server-hosting/maintenance/debugging-server-lockups"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Другие проекты",
+            "pages": [
+              "ru/other-projects/launcher/content-bundles",
+              "ru/other-projects/launcher/delta-updates-and-manifests"
+            ]
+          },
+          {
+            "group": "Спецификации",
+            "pages": [
+              "ru/specifications/robust-station-image",
+              "ru/specifications/robust-generic-attribution"
+            ]
+          },
+          {
+            "group": "Сообщество",
+            "pages": [
+              {
+                "group": "Инфраструктура",
+                "root": "ru/community/infrastructure-references",
+                "pages": [
+                  "ru/community/infrastructure-reference/wizards-den-infrastructure",
+                  "ru/community/infrastructure-reference/grafana-dashboards"
+                ]
+              },
+              "ru/community/space-wizards-hub-rules",
+              "ru/community/discord-rich-presence-repository",
+              {
+                "group": "Администрирование",
+                "root": "ru/community/admin",
+                "pages": [
+                  {
+                    "group": "Инструменты администратора",
+                    "root": "ru/community/admin/admin-tooling",
+                    "pages": [
+                      "ru/community/admin/admin-tooling/admin-command-cookbook"
+                    ]
+                  }
+                ]
+              },
+              "ru/community/progress-report-creation"
+            ]
+          },
+          {
+            "group": "Разработка движка",
+            "pages": [
+              "ru/engine-development/testing-against-launcher",
+              "ru/engine-development/updating-cef"
             ]
           }
         ]

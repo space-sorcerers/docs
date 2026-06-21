@@ -1,0 +1,93 @@
+---
+title: "КАК КОНВЕРТИРОВАТЬ ВИД В NUBODY"
+---
+
+от mqole
+
+<Info>
+Это неофициальное и неполное руководство. В будущем оно будет обновлено и заменено официальным документом.
+</Info>
+
+Все это приблизительные оценки, основанные на обратном проектировании nubody. Если что-то не так, это потому, что я не понимаю, как работает nubody.
+
+ПРИМЕЧАНИЕ: когда я говорю Species в имени entity (например, AppearanceSpecies, MobSpecies), я ожидаю, что это будет заменено на фактическое название вида (например, AppearanceDwarf, MobDwarf).
+
+## БЫСТРЫЙ ЧЕКЛИСТ
+
+Body/Species/species.yml должен содержать:
+
+- [ ] MarkingsGroup
+- [ ] AppearanceSpecies, изменённый из Body/Prototypes/species.yml
+- [ ] MobSpecies, изменённый из Entities/Mobs/Species/species.yml
+- [ ] Внешние органы (ранее 'parts'), изменённые из Body/Organs/species.yml
+- [ ] Внутренние органы, изменённые из Body/Parts/species.yml
+
+Затем вы можете удалить все файлы, из которых вы переместили содержимое:
+
+- [ ] Body/Prototypes/species.yml
+- [ ] Entities/Mobs/Species/species.yml
+- [ ] Body/Organs/species.yml
+- [ ] Body/Parts/species.yml
+
+Species/species.yml должен содержать:
+
+- [ ] Species. Вот и всё
+
+При изменении Species/species.yml, вы должны:
+
+- [ ] Удалить `sprites` вида
+- [ ] Удалить `markingLimits` вида
+- [ ] Заменить `dollPrototype` `MobSpeciesDummy` entity на `AppearanceSpecies` entity
+- [ ] Удалить `speciesBaseSprites`
+- [ ] Удалить `humanoidBaseSprite`
+- [ ] Вырезать `markingPoints`, вставить в начало Body/Species/species.yml. Это наш новый MarkingsGroup
+
+Чтобы обновить markings:
+
+- [ ] Удалить `markingCategory`
+- [ ] Удалить `followSkinColor`
+- [ ] Переименовать `speciesRestriction` в `groupWhitelist`.
+
+## Markings
+
+Это наследуется от группы marking `Undergarments` и определяет лимиты для того, какие markings может иметь вид. Числовые лимиты, логические требования и markings по умолчанию имеют более или менее такой же синтаксис, как и предыдущие `MarkingPoints` — просто замените слои humanoid visual на `enum.HumanoidVisualLayers.`что-то и измените `points` на `limit`.
+
+Вам нужно будет разделить руки и ноги на LArm, RArm и т.д. Лимиты на них были уменьшены вдвое для компенсации. Я не уверен, как обрабатывать виды, которые используют одно marking для изменения обеих рук или ног одновременно, к сожалению.
+
+## Внешний вид вида
+
+Насколько я могу судить, это заменяет систему, соединяющую части тела друг с другом. Эта entity должна наследовать `BaseSpeciesAppearance` и содержать информацию о `InventoryComponent`, `InitialBodyComponent` и `HumanoidProfile`.
+
+Поле `organs` в `InitialBodyComponent` имеет словарь типов органов, соответствующих внутренним или внешним органам моба. Если вам нужно определить новый тип органа, вы можете сделать это где-нибудь в отдельном yml-файле, так же, как и в предыдущей системе.
+
+`HumanoidProfile` — это замена `HumanoidAppearance`. Просто измените имя и дело с концом.
+
+## Сам моб
+
+Должен наследовать `BaseSpeciesMobOrganic` и соответствующий внешний вид вида. Всё, что было у старого моба, идёт сюда, за вычетом того, что вы переместили во внешний вид. Убедитесь, что вы избавились от `InventoryComponent` в частности.
+
+## Органы
+
+Итак, части тела теперь тоже органы. Мы называем части тела 'внешними органами' в отличие от существующих органов, которые мы называем 'внутренними органами'.
+
+Вам понадобятся:
+
+- [ ] OrganSpecies, наследующий OrganBase, с суффиксом вида
+- [ ] OrganSpeciesMetabolizer, с MetabolizerComponent. Возможно, он вам не понадобится.
+- [ ] OrganSpeciesInternal (мозг, глаза и т.д.), наследующий OrganSpecies, путь к спрайту organs.rsi
+- [ ] OrganSpeciesExternal (голова, стопа и т.д.), наследующий OrganSpecies, путь к спрайту parts.rsi
+- [ ] OrganSpeciesVisual, наследующий OrganSpecies, с `VisualOrganComponent` и `VisualOrganMarkingsComponent`.
+
+Все создаваемые вами органы (внутренние и внешние) должны наследовать либо OrganSpeciesExternal, либо OrganSpeciesInternal в зависимости от того, что вам нужно, а также наследовать базовый орган для того, что нужно (OrganBaseFootLeft, OrganBaseAppendix и т.д., следуйте этому синтаксису). Поместите на них любые необходимые компоненты, как вы делали для предыдущих органов.
+
+Если у вас есть уникальный желудок, он должен наследовать OrganSpeciesMetabolizer. Если вы просто используете существующий желудок, вам не нужно создавать новый OrganSpeciesMetabolizer, просто унаследуйте его от того вида, чью группу метаболизма вы используете.
+
+OrganSpeciesVisual должен указывать своим `VisualOrganComponent` на parts.rsi, а его `VisualOrganMarkings` — на созданную ранее группу marking (может быть 'None'). Глаза (и другие внутренние органы, влияющие на markings, если они у вас есть) также должны наследовать OrganSpeciesVisual.
+
+## Markings
+
+Вы можете просто удалить `markingCategory` и `followSkinColor`, а также переименовать `speciesRestriction` в `groupWhitelist`, и всё должно быть в порядке. К сожалению, в апстриме нет ничего с пользовательскими визуальными слоями, так что я здесь бессилен.
+
+## Пользовательские порядки слоёв
+
+не спрашивай меня, чувак, я сам хрен понимаю эту херню

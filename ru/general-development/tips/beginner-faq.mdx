@@ -1,0 +1,100 @@
+﻿---
+title: "Часто задаваемые вопросы начинающих"
+---
+
+## Вклад в Space Station 14
+
+### Я хочу начать вносить вклад в Space Station 14, но не знаю, с чего начать.
+
+Перейдите в [Issues в Space Station 14](https://github.com/space-wizards-federation/space-station-14/issues)
+- Выберите 1 или более из следующих меток в [Labels](https://github.com/space-wizards-federation/space-station-14/labels)
+1. [Beginner Friendly](https://github.com/space-wizards-federation/space-station-14/labels/DB%3A%20Beginner%20Friendly)
+2. [Difficulty: 3 - Low](https://github.com/space-wizards-federation/space-station-14/labels/D3%3A%20Low)
+3. [No C#](https://github.com/space-wizards-federation/space-station-14/labels/Changes%3A%20No%20C%23) для работы над задачами, не требующими кода.
+
+После выбора задачи для исправления следуйте шагам, чтобы начать создавать и тестировать изменения кода на вашей собственной копии Space Station 14:
+- [Setting up a Development Environment](https://docs.spacestation14.com/en/general-development/setup/setting-up-a-development-environment.html)
+   - Это позволит вам играть в локальную копию игры, чтобы вы могли видеть ваши изменения в геймплее.
+- [Git for the SS14 Developer](https://docs.spacestation14.com/en/general-development/setup/git-for-the-ss14-developer.html)
+   - Это позволит вам работать с кодом, который вы можете перенести с вашего компьютера в ваш репозиторий Github и в конечном итоге в Space Station 14.
+
+### Как код переносится между моим компьютером и основным репозиторием Space-Station-14?
+
+<Danger title="Создайте новую ветку, чтобы не работать в ветке master!">
+Это важно знать, чтобы случайно не удалить все ваши изменения кода при обновлении вашей копии Space Station 14.
+- [Git for the SS14 Developer](https://docs.spacestation14.com/en/general-development/setup/git-for-the-ss14-developer.html#3-setting-up-remotes)
+</Danger>
+
+**3 места хранения кода:**
+1) Ваш компьютер (Ваша копия)
+2) Ваш репозиторий Github (Локальный Github)
+3) Github Space Station 14
+
+**Как передаётся код.**
+1. **Github Space Station 14 => Локальный Github**. Вы делаете форк репозитория Space Station 14, чтобы иметь собственную копию на Github.
+2. **Локальный Github <==> Github Space Station 14**. НЕ вносите собственные изменения кода в вашу ветку master.
+- Ваша ветка master должна быть связана с веткой master Space Station 14.
+- Каждый раз, когда Github Space Station 14 обновляет свой код, ваша ветка master в вашем локальном репозитории Github также должна обновлять свой код, чтобы оставаться синхронизированной.
+3. **Локальный Github => Ваша копия**. Следуйте [Setting up a Development Environment](https://docs.spacestation14.com/en/general-development/setup/setting-up-a-development-environment.html) и [Git for the SS14 Developer](https://docs.spacestation14.com/en/general-development/setup/git-for-the-ss14-developer.html)
+4. **Ваша копия**. Создайте новую ветку в вашем редакторе кода, где вы будете вносить изменения.
+5. **Ваша копия**. Протестируйте ваши изменения в геймплее.
+6. **Ваша копия => Локальный Github**. Когда ваш код готов, сделайте коммит в ваш репозиторий Github из ветки, не являющейся master.
+7. **Github Space Station 14 => Локальный Github**. Sync Fork
+
+![syncfork.png](/images/general-development/tips/beginner-faq/syncfork.png)
+
+- Чтобы ваш код работал, он должен вписываться в код Github Space Station 14.
+- Вам придётся поддерживать ваш Локальный Github код в актуальном состоянии относительно Github Space Station 14.
+
+8. **Локальный Github => Ваша копия** Выполните pull обновлённого кода из вашего репозитория Локального Github в вашу копию.
+
+![syncfork.png](/images/general-development/tips/beginner-faq/pullcode.png)
+
+Возможно, вам потребуется выполнить merge изменений, если вы пытаетесь изменить файлы, которые были изменены при обновлении.
+![mergechanges.png](/images/general-development/tips/beginner-faq/mergechanges.png)
+
+9. **Ваша копия => Локальный Github**. Закоммитьте ваши изменения.
+10. **Локальный Github <==> Github Space Station 14**. Создайте pull request.
+- Если вы вносите изменения кода из вашей ветки master и делаете pull request из вашей ветки master, и ваши изменения кода, и ваш pull request находятся под угрозой самоуничтожения.
+   - Единственный способ поддерживать ваш код в актуальном состоянии относительно актуального кода Space Station 14 — это синхронизировать код.
+   - Это потребует от вас отказаться от ваших коммитов.
+   - Как только вы откажетесь от коммитов, ваши изменения кода будут удалены, и ваш pull request будет закрыт. Что не весело.
+11. Ждите, пока Code Reviewers сообщат, готов ли ваш код к слиянию.
+
+### У меня есть идея для новой функции или исправления проблемы, которой я не видел на Github.
+
+1. Сначала попробуйте поиграть в игру, чтобы знать, какие функции уже реализованы.
+- «Feature bloat» происходит, если вы делаете функцию, которая уже существует.
+   - Например, разрешение определённого действия переключением клавиши «4», когда оно уже может быть переключено нажатием «z».
+2. Предложите функцию перед тем, как начать её делать: [Feature Proposals](https://docs.spacestation14.com/en/general-development/feature-proposals.html)
+3. Откройте новый Issue в Space Station 14: [New Issue](https://github.com/space-wizards-federation/space-station-14/issues/new/choose)
+
+## Программирование Space Station 14
+
+### Я не могу играть в локальную копию игры, потому что не все проекты загружаются.
+
+Вы выполнили шаг 2.3 из [Git for the SS14 Developer](https://docs.spacestation14.com/en/general-development/setup/git-for-the-ss14-developer.html#23-submodule-woes)?
+
+Убедитесь, что вы используете команду cd для перехода в ваш репозиторий space-station-14 перед запуском RUN_THIS.py.
+![cdcommand.png](/images/general-development/tips/beginner-faq/cdcommand.png)
+
+## Исследование Space Station 14
+
+### Я ищу текст, который видел в игре, но не уверен, где искать.
+
+1. Много внутриигрового текста можно найти в XAML файлах и YML файлах. Вы можете искать по XAML файлам, чтобы найти части пользовательского интерфейса, над которыми хотите работать.
+![xamlandymlsearch.png](/images/general-development/tips/beginner-faq/xamlandymlsearch.png)
+2. Если YML файлы не отображаются, вы можете найти их на Github, перейдя в [репозиторий Space Station 14](https://github.com/space-wizards-federation/space-station-14?search=1) и выполнив поиск .yml файлов.
+3. Используйте ваш редактор кода для поиска точного текста (для текста, который не основан на Project Fluent). Например, Visual Studio позволяет использовать Ctrl + Shift + F для поиска определённого текста во всех файлах.
+
+![codeeditor.png](/images/general-development/tips/beginner-faq/codeeditor.png)
+
+4. Не весь текст отображается точно так, как написан, потому что Space Station 14 использует Project Fluent для автоматического перевода текста на разные языки.
+- [Project Fluent](https://docs.spacestation14.com/en/ss14-by-example/fluent-and-localization.html)
+   - Это означает, что некоторый текст отображается как Loc.GetString("id-that-references-fluent-file")
+
+![projectfluent.png](/images/general-development/tips/beginner-faq/projectfluent.png)
+
+5. Если вы хотите найти, где метод используется в коде, вы можете нажать на имя метода на Github, чтобы найти, где он используется.
+
+![methodname.png](/images/general-development/tips/beginner-faq/methodname.png)

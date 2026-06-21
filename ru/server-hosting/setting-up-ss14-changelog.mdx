@@ -1,0 +1,95 @@
+---
+title: "Настройка SS14.Changelog"
+---
+
+## Основная настройка
+
+Смотрите репозиторий: https://github.com/space-wizards-federation/SS14.Changelog
+
+## RSS-лента
+
+Система публикации может автоматически публиковать журнал изменений в RSS-ленту. Это делается из [`actions_changelog_rss.py`](https://github.com/space-wizards-federation/space-station-14/blob/master/Tools/actions_changelog_rss.py), который запускается из [рабочего процесса публикации](https://github.com/space-wizards-federation/space-station-14/blob/master/.github/workflows/publish.yml).
+
+### Настройка сервера
+
+Результирующий RSS-файл должен размещаться на отдельном сервере, доступном через SFTP. Я рекомендую настроить SFTP-пользователя с chroot. Если вы знаете, как это сделать, вам, вероятно, не нужно особо вникать.
+
+```shell
+# Создайте группу для пользователей только SFTP
+groupadd sftp-only
+# Создайте пользователя changelog
+useradd changelog-rss --groups sftp-only --create-home
+
+# Создайте директорию для chroot-окружения sftp
+mkdir --parents /var/sftp/home/changelog-rss
+chown changelog-rss: /var/sftp/home/changelog-rss
+
+# Настройте SSH-ключ для пользователя
+mkdir /home/changelog-rss/.ssh
+ssh-keygen -t ed25519 -f changelog_key -N ""
+cat changelog_key.pub >> /home/changelog-rss/.ssh/authorized_keys
+# Сохраните changelog_key, он понадобится для настройки на стороне GitHub.
+chown -R changelog-rss: /home/changelog-rss/.ssh
+
+# (пример, зависит от того, какой веб-сервер вы используете)
+# Дайте nginx доступ к директории загрузки
+setfacl -m u:nginx:rx /var/sftp/home/changelog-rss
+```
+
+Вам также нужно будет добавить следующее в `/etc/ssh/sshd_config`:
+
+```
+Subsystem sftp internal-sftp
+
+Match Group sftp-only
+    ChrootDirectory /var/sftp
+    X11Forwarding no
+    AllowTcpForwarding no
+    AllowAgentForwarding no
+    ForceCommand internal-sftp
+```
+
+Вам всё равно нужно будет обеспечить доступность файла журнала изменений через веб-сервер. Я оставлю это на ваше усмотрение. Что бы вы ни делали, убедитесь, что ваш веб-сервер сообщает `Content-Type` файла как `application/rss+xml`.
+
+<Warning>
+SSH-ключ ОБЯЗАТЕЛЬНО должен быть ed25519. Мне было лень делать скрипт более гибким.
+</Warning>
+
+### Настройка GitHub
+
+В официальном рабочем процессе публикации `actions_changelog_rss.py` автоматически запускается, когда в GitHub установлен секрет `CHANGELOG_RSS_KEY`. Это должен быть приватный ключ, который позволит вам подключиться по SFTP.
+
+Однако перед его установкой вам всё равно нужно внести некоторые изменения в `actions_changelog_rss.py`:
+
+```python
+# Измените эти параметры в соответствии с настройками вашего сервера
+# https://docs.fabfile.org/en/stable/getting-started.html#run-commands-via-connections-and-run
+SSH_HOST = "centcomm.spacestation14.io"
+SSH_USER = "changelog-rss"
+SSH_PORT = 22
+RSS_FILE = "changelog.xml"
+HOST_KEYS = [
+    "AAAAC3NzaC1lZDI1NTE5AAAAIEE8EhnPjb3nIaAPTXAJHbjrwdGGxHoM0f1imCK0SygD"
+]
+
+# Параметры RSS-ленты, измените их
+FEED_TITLE       = "Space Station 14 Changelog"
+FEED_LINK        = "https://github.com/space-wizards-federation/space-station-14/"
+FEED_DESCRIPTION = "Changelog for the official Wizard's Den branch of Space Station 14."
+FEED_LANGUAGE    = "en-US"
+FEED_GUID_PREFIX = "ss14-changelog-wizards-"
+FEED_URL         = "https://central.spacestation14.io/changelog.xml"
+```
+
+* Установите параметры `SSH_` в соответствии с параметрами подключения, необходимыми для подключения по SSH.
+* `RSS_FILE` — это имя файла назначения в SFTP-директории.
+* `HOST_KEYS` должен содержать ed25519 хост-ключ вашей целевой системы. Вы можете найти его в `/etc/ssh/ssh_host_ed25519_key.pub`. Отрежьте начальную часть `ssh-ed25519`.
+* Параметры `FEED_` изменяют содержимое RSS-ленты. Вам следует изменить их, чтобы они отличались от используемых Wizard's Den.
+
+### Пользовательские данные XML
+
+Созданная RSS-лента содержит как обычное HTML-описание изменений, так и некоторую более структурированную информацию из исходного журнала изменений, которая может быть отображена специализированными инструментами. Эти данные находятся в XML-пространстве имён `https://spacestation14.com/changelog_rss`.
+
+Краткое описание данных:
+* `<item>` содержит `ss14:from-id` и `ss14:to-id` для описания диапазона журналов изменений, охватываемых элементом RSS.
+* Каждый элемент RSS может содержать серию элементов `<ss14:entry>`, содержащих записи, составляющие элемент RSS.

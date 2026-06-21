@@ -1,0 +1,147 @@
+---
+title: "Запись реплеев сервера"
+---
+
+Игровой сервер может автоматически записывать полный реплей каждого сыгранного раунда. Реплеи сохраняются в виде отдельных zip-файлов, которые можно загрузить с помощью игры и лаунчера.
+
+## Конфигурация сервера
+
+### Конфигурация сборки
+
+Ваш сервер должен иметь полную конфигурацию сборки/CDN (не только ACZ). В противном случае старые реплеи перестанут работать, так как лаунчер больше не сможет загрузить игру.
+
+### CVars для реплеев
+
+Вам нужно установить следующие CVars:
+
+`replay.auto_record`: Установите в true, чтобы включить систему!
+
+`replay.max_compressed_size`: Примерный максимальный размер реплея, при достижении которого запись автоматически останавливается, в килобайтах. По умолчанию — 256 МБ, но вы можете немного увеличить это значение в зависимости от ваших потребностей.
+
+`replay.directory`: Директория в данных сервера, куда сохраняются реплеи. По умолчанию — `replays/`.
+
+`replay.auto_record_name`: Имя файла в директории реплеев, под которым будут сохраняться реплеи. По умолчанию — `{year}_{month}_{day}-{hour}_{minute}-round_{round}.zip`, значения в фигурных скобках автоматически подставляются при начале записи.
+
+`replay.auto_record_temp_dir`: Временная директория, в которой находятся реплеи во время записи. Когда запись завершается (в конце раунда), файл перемещается в конечное расположение, указанное в `replay.auto_record_name`. По умолчанию пусто, что отключает эту часть системы (реплеи будут записываться прямо в конечное расположение).
+
+Это все CVars, необходимые для настройки. В вашей папке с реплеями появится множество zip-файлов. Вы можете поместить эти zip-файлы на статический файловый сервер, и это должно™ работать. Предупреждаем: если вы используете статический файловый сервер, вам следует использовать `replay.auto_record_temp_dir`, чтобы реплеи нельзя было скачать, пока идёт живой раунд.
+
+## Конфигурация Wizard's Den
+
+Это обзор того, как мы настроили эту систему на игровых серверах Wizard's Den. Вы можете использовать это как вдохновение или полностью проигнорировать.
+
+Для начала, мы не хотим хранить реплеи на самих игровых серверах. У нас большой объём хранилища на центральном сервере (centcomm), поэтому храним их там. Также, в целях надёжности, игровые серверы не имеют возможности удалять реплеи после их завершения.
+
+На высоком уровне мы экспортируем NFS-шару с нашего центрального сервера, в которую пишут игровые серверы. Когда запись завершается, игровой сервер перемещает её в другую директорию на NFS-шаре, а скрипт на сервере перемещает реплеи в их конечное положение (доступное через nginx, недоступное для игрового сервера).
+
+Структура папок (хранилища) выглядит так:
+
+```
+/hdd/replays
+├── permanent
+│   └── lizard
+│       └── 2023
+│           ├── 07
+│           │   └── 20
+│           │       └── lizard-2023_07_20-01_09-round_12345.zip
+│           └── 08
+│               └── 20
+│                   └── lizard-2023_08_20-01_09-round_12345.zip
+└── temp
+    ├── done
+    └── recording
+```
+
+Экспорт NFS на centcomm выглядит так (используя bind mounts для экспорта папки):
+
+```
+/nfs/ss14_server/replays
+├── done
+└── recording
+```
+
+На игровых серверах это смонтировано как `/nfs/replays`. Мы создаём симлинк `data/replays` в экземплярах игровых серверов НА `/nfs/replays`, чтобы игровой сервер писал туда. У нас установлено `replay.auto_record_temp_dir` в `"recording"` и `replay.auto_record_name` в `"done/lizard-{year}_{month}_{day}-{hour}_{minute}-round_{round}.zip"` (префикс имени сервера настраивается отдельно для каждого сервера).
+
+Реплеи уже находятся на сервере, когда запись останавливается, поэтому, когда игровой сервер переименовывает файлы в конечное положение, это происходит довольно быстро (по сравнению с тем, если бы ему пришлось копировать с локального диска перед переименованием).
+
+Эта настройка помещает реплеи в папку `done/`, но они всё ещё доступны игровым серверам впоследствии. Для дополнительной изоляции мы используем **systemd path unit**, который запускает скрипт при перемещении файла в папку `done/` и перемещает его снова в конечное место `permanent/`.
+
+systemd-юниты и Python-скрипт довольно просты и выглядят так:
+
+```ini
+# ss14-transfer-replays.path
+[Unit]
+Description=Detect new finished replay files.
+After=hdd-replays-temp.mount hdd-replays-permanent.mount
+Requires=hdd-replays-temp.mount hdd-replays-permanent.mount
+
+[Path]
+PathExistsGlob=/hdd/replays/temp/done/*.zip
+
+[Install]
+WantedBy=paths.target
+```
+
+```ini
+# ss14-transfer-replays.service
+[Unit]
+Description=Transfer SS14 game replays into final location.
+
+[Service]
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/transfer_replays.py
+User=ss14_server
+Group=ss14_server
+```
+
+```py
+#!/usr/bin/env python3
+# /opt/transfer_replays.py
+
+import os
+import os.path
+import re
+import shutil
+
+SOURCE_DIR = "/hdd/replays/temp/done/"
+DEST_DIR   = "/hdd/replays/permanent/"
+
+REPLAY_FILE_NAME_RE = re.compile(r"([^-]+)-(\d{4})_(\d{2})_(\d{2})-\d{2}_\d{2}-round_\d+\.zip")
+
+def main():
+    for file in os.listdir(SOURCE_DIR):
+        src_replay = os.path.join(SOURCE_DIR, file)
+        final_rel_path = calculate_final_replay_path(file)
+        final_path = os.path.join(DEST_DIR, final_rel_path)
+
+        dir = os.path.dirname(final_path)
+        os.makedirs(dir, exist_ok=True)
+        print(f"{src_replay} -> {final_path}")
+        shutil.move(src_replay, final_path)
+
+
+def calculate_final_replay_path(name: str) -> str:
+    """
+    Takes in a replay name like "lizard-2023_07_20-01_09-round_12345.zip"
+    Returns the relative path to move it to, like
+    "lizard/2023/07/20/01/09/lizard-2023_07_20-01_09-round_12345.zip"
+    """
+
+    match = REPLAY_FILE_NAME_RE.match(name)
+    if not match:
+        # Can't let files like these just sit, because then this script would keep spinning. Move em to a lost+found.
+        print(f"Warning: unable to parse file name '{name}'. Moving to lost+found")
+        return f"lost+found/{name}"
+
+    server = match.group(1)
+    year = match.group(2)
+    month = match.group(3)
+    day = match.group(4)
+
+    return f"{server}/{year}/{month}/{day}/{name}"
+
+if __name__ == "__main__":
+    main()
+```
+
+Затем, наконец, у нас есть конфигурация nginx для обслуживания статических файлов.

@@ -1,0 +1,25 @@
+---
+title: "Публикация RobustToolbox"
+---
+
+<Info>
+Эта инструкция — пошаговое руководство для мейнтейнеров движка.
+</Info>
+
+1. Откройте терминал в директории RobustToolbox (выполните `cd RobustToolbox`, если вы находитесь в директории space-station-14)
+2. Получите последний master (`git fetch https://github.com/space-wizards-federation/RobustToolbox.git`)
+3. Переключитесь на remote master ветку (`git checkout -B master upstream/master`, с большой 'B', чтобы перезаписать master)
+   - Этот шаг перезапишет вашу локальную ветку `master` удалённой.
+4. Запустите version.py (`python ./Tools/version.py 0.1.0`, где 0.1.0 — нужный номер версии, БЕЗ 'v')
+   - Если вы используете `py` вместо `python` на Windows, это может не сработать из-за псевдонима Microsoft Store.
+5. Запушьте ваш commit и тег в RobustToolbox (`git push` и `git push https://github.com/space-wizards-federation/RobustToolbox.git v0.1.0`, С 'v')
+   - НЕ выполняйте `git push --tags`, так как это запушит ВСЕ теги, которые у вас есть локально, даже удалённые.
+6. Вернитесь в директорию контента (`cd ..`)
+7. Создайте новую ветку (`git checkout -b update/robust-0.1.0`)
+8. Закоммитьте изменение движка (`git commit RobustToolbox -m "Update RobustToolbox"`)
+9. Запушьте вашу ветку (`git push`)
+10. Откройте PR в репозиторий контента и смержите его.
+
+<Warning>
+Всегда полезно запустить игру с новой версией движка перед публикацией и merge'ем PR, чтобы убедиться, что всё работает. Вы также можете запустить тесты локально с помощью `dotnet test`, так как это будет быстрее, чем ждать их выполнения в GitHub workflows.
+</Warning>

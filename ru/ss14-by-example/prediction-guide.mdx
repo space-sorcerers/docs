@@ -1,0 +1,712 @@
+---
+title: "Руководство по Prediction"
+---
+
+Client-side prediction — это техника сетевого программирования, используемая для скрытия эффектов сетевой задержки. Для вводного объяснения общих концепций, используемых в большинстве современных многопользовательских игр, рекомендую посмотреть эти два видео:
+
+[How a Software Feature Changed Online Gaming Forever](https://www.youtube.com/watch?v=hibDAXaHhnY)
+
+[Why You Freeze In Counter Strike (netcode analysis)](https://www.youtube.com/watch?v=WfxD_NwNVO4)
+
+Короче говоря, prediction позволяет вашему клиенту реагировать на ваши действия напрямую, без ожидания подтверждения от сервера, что делает игру гораздо более отзывчивой, особенно для игроков с высоким пингом. Если напрямую сравнить игровую функцию в SS14 с prediction и без него, разница будет очень заметной.
+
+Для апстрим-репозитория мы требуем, чтобы весь новый код был предсказуемым (predicted), если это возможно (некоторые системы, такие как atmos и power, не могут быть предсказаны и являются исключениями). Много старого кода всё ещё не предсказано, и его очистка — это ongoing effort. Вы можете найти обзор оставшихся систем [здесь](https://github.com/space-wizards-federation/space-station-14/issues/40655).
+
+См. [это руководство](basic-networking-and-you) для базовой информации о том, как компоненты работают по сети — это потребуется для данного руководства.
+
+## Как работает prediction?
+
+Без prediction любой ввод от клиента (например, нажатия клавиш или клики мыши) будет передан по сети на сервер, который затем симулирует игру в соответствии с вводом всех игроков и отправляет результирующее состояние игры обратно каждому клиенту. Клиент увидит результаты только с заметной задержкой в зависимости от своего пинга, что делает игру неотзывчивой и вызывает визуальную задержку для элементов UI.
+
+С prediction каждый клиент запускает свою собственную симуляцию игры в соответствии с вводом локального игрока и немедленно видит результаты, не дожидаясь сервера, скрывая любую задержку. Сервер хранит авторитетное состояние игры (authoritative game state), которое все клиенты считают «истиной» в случае разногласий.
+
+Во время prediction клиент будет многократно путешествовать во времени. Когда клиент получает состояние сервера, из-за задержки это состояние игры будет относиться к игровому тику, который находится в прошлом с точки зрения клиента. Поэтому клиент должен перемотать своё собственное состояние игры на эту точку в прошлом, применить информацию, отправленную сервером, и повторно симулировать игру оттуда, заново применяя ввод игрока, пока снова не достигнет текущего игрового тика. Это перезапишет и исправит любые разногласия, которые могут возникнуть у клиента в их предсказанной симуляции (например, кто-то другой убил вас, пока вы пытались с чем-то взаимодействовать, но вы ещё не знали об этом из-за задержки, поэтому взаимодействие отменяется).
+
+Чтобы уменьшить сетевую нагрузку, сервер обычно отправляет не полное состояние игры, а только изменения между каждым игровым тиком (если только клиент не подключается заново или не испытывает серьёзные скачки задержки).
+
+Имейте в виду, что каждый клиент может предсказывать только свой собственный ввод и его результаты, так как результаты других игроков всё равно должны быть сначала отправлены вам по сети.
+
+## Чеклист Prediction
+Большинство шагов, описанных выше, автоматически обрабатываются игровым движком для любых систем в `Content.Shared`, но вы должны убедиться, что ваш код настроен на networking правильно.
+Следуйте этим шагам, чтобы сделать существующую непредсказуемую `EntitySystem` предсказуемой:
+- Переместите соответствующие компоненты и системы из `Content.Server` в `Content.Shared`.
+- Добавьте атрибуты `NetworkedComponent` и `AutoGenerateComponentState` к компонентам, а атрибут `AutoNetworkedField` к полям данных, о которых клиент должен знать и которые могут измениться после спавна (если они никогда не меняются по сравнению со значением в прототипе, нет необходимости их сетевать), или используйте ручные component states при необходимости.
+- `EntitySystem` должна быть либо одной неабстрактной системой в `Content.Shared`, либо абстрактной общей системой, от которой наследуют как сервер, так и клиент, если какой-либо из них полагается на уникальный, не-общий код. Даже если клиентская система пуста, убедитесь, что она существует, иначе код не будет выполняться на клиенте и не будет предсказан.
+- Чтобы иметь возможность сделать некоторый код предсказуемым, все его зависимости также должны быть сделаны предсказуемыми, так как общий код не может вызывать серверный код предсказуемым образом.
+- Помечайте компонент как dirty каждый раз, когда изменяются его поля данных. Это скажет серверу отправить все сетевые поля данных в этом компоненте клиенту для синхронизации, а также скажет клиенту сбросить это поле данных до более раннего значения во время prediction.
+- Для больших компонентов с множеством сетевых полей данных или в случаях, когда некоторые поля данных изменяются с очень разной скоростью, вам следует использовать field deltas (используйте для этого `DirtyField`), чтобы уменьшить сетевую нагрузку. Это сделает dirty только это поле данных, а не весь компонент.
+- Используйте предсказанные API методы, например `PopupPredicted`/`PopupClient`, `PlayPredicted` (для аудио), `PredictedSpawnAtPosition`/`PredictedSpawnAttachedTo`, `PredictedDeleteEntity` и так далее. Если вы не используете правильный метод для popup, то popup будет отображаться около 10 раз или не будет отображаться вовсе.
+- Убедитесь, что случайность (randomness) предсказана, как объясняется ниже.
+- Протестируйте всё в игре, чтобы убедиться, что работает как задумано.
+
+#### Инструменты тестирования для prediction
+Сначала попробуйте всё, чтобы проверить, нет ли визуальных глитчей, мерцающих спрайтов, задвоенного звука, повторяющихся popup или других misprediction. Убедитесь, что вы также тестируете с двумя открытыми окнами клиента одновременно, чтобы проверить, согласны ли они оба в том, что видят, и всё ли правильно передано второму клиенту, если первый с чем-то взаимодействует.
+
+Вы можете использовать команду `sudo cvar net.fakelagmin 0.5` для увеличения искусственной задержки в режиме разработчика. Если prediction работает, вы не заметите временной задержки от этого. По умолчанию это уже имеет ненулевое значение, но увеличение задержки делает любые mispredict гораздо более заметными.
+
+Я также считаю полезным открыть окно `ViewVariables` для соответствующего компонента как на сервере, так и на клиенте, настроить их на автоматическое обновление, щёлкнув правой кнопкой мыши по кнопке обновления, а затем сравнивать значения полей данных по мере взаимодействия с entity. Вы можете использовать команду `quickinspect`, чтобы быстро открыть как серверное, так и клиентское окно для выбранного вами компонента entity, не просматривая список компонентов.
+Если всё работает, значения клиента будут меняться мгновенно в момент взаимодействия, а сервер вскоре обновится до тех же значений. Если клиент должен как-то себя исправить или прыгает между несколькими значениями — это mispredict.
+
+#### Помогите, мой код на клиенте выполняется несколько раз по непонятной причине!
+
+При установке точек останова или выводе в консоль вы заметите, что предсказанный код выполняется 10+ раз на клиенте. Это совершенно нормально и просто результат работы prediction. Клиент перематывает состояние игры к предыдущему тику каждый раз, когда получает состояние сервера, и должен повторно симулировать игру оттуда. Однако это требует особой обработки для таких вещей, как UI или аудио, чтобы предотвратить мерцание или многократное воспроизведение. Это объясняется подробнее ниже.
+
+## Пример кода Prediction
+Давайте рассмотрим простой непредсказанный пример компонента и сделаем его предсказанным.
+
+```csharp
+// In Content.Server/PredictionExample/PredictionExampleComponent.cs
+
+using Robust.Shared.Audio;
+
+namespace Content.Server.PredictionExample;
+
+/// <summary>
+/// A simple test component that
+/// - plays a sound and shows a popup when interacted with, either by activating it or by using a verb
+/// - has an examination text
+/// </summary>
+[RegisterComponent]
+public sealed partial class PredictionExampleComponent : Component
+{
+    /// <summary>
+    /// How often the entity has been interacted with.
+    /// </summary>
+    [DataField]
+    public int Counter = 0;
+
+    /// <summary>
+    /// The sound to play when interacted with.
+    /// </summary>
+    [DataField]
+    public SoundSpecifier Sound = new SoundPathSpecifier("/Audio/Machines/machine_switch.ogg");
+}
+```
+
+```csharp
+// In Content.Server/PredictionExample/PredictionExampleSystem.cs
+
+using Content.Shared.Examine;
+using Content.Shared.Interaction;
+using Content.Shared.Popups;
+using Content.Shared.Verbs;
+using Robust.Shared.Audio.Systems;
+
+namespace Content.Server.PredictionExample;
+
+// This system is server-side and therefore not predicted yet.
+public sealed class PredictionExampleSystem : EntitySystem
+{
+    [Dependency] private readonly SharedAudioSystem _audio = default!;
+    [Dependency] private readonly SharedPopupSystem _popup = default!;
+
+    public override void Initialize()
+    {
+        base.Initialize();
+
+        SubscribeLocalEvent<PredictionExampleComponent, GetVerbsEvent<Verb>>(OnGetVerb);
+        SubscribeLocalEvent<PredictionExampleComponent, ActivateInWorldEvent>(OnActivate);
+        SubscribeLocalEvent<PredictionExampleComponent, ExaminedEvent>(OnExamine);
+    }
+
+    // A simple right click verb
+    private void OnGetVerb(Entity<PredictionExampleComponent> ent, ref GetVerbsEvent<Verb> args)
+    {
+        args.Verbs.Add(new()
+        {
+            Text = "Interaction Verb", // This should be localized, but I'm skipping that for this example.
+            Act = () => Interact(ent),
+        });
+    }
+
+    // Event that is raised when clicking on an entity or using it in your hand.
+    private void OnActivate(Entity<PredictionExampleComponent> ent, ref ActivateInWorldEvent args)
+    {
+        Interact(ent);
+    }
+
+    // Increments an integer datafield, shows a popup and plays a sound.
+    public void Interact(Entity<PredictionExampleComponent> ent)
+    {
+        // Increment the counter.
+        ent.Comp.Counter++;
+
+        // Play a sound at the location of the entity.
+        _audio.PlayPvs(ent.Comp.Sound, ent.Owner);
+
+        // Show a popup over the entity.
+        // This should be localized, but I'm skipping that for this example.
+        _popup.PopupEntity($"Interacted {ent.Comp.Counter} times.", ent.Owner);
+    }
+
+    // Show the counter in the examine text.
+    public void OnExamine(Entity<PredictionExampleComponent> ent, ref ExaminedEvent args)
+    {
+        // This should be localized, but I'm skipping that for this example.
+        args.PushMarkup($"Interacted {ent.Comp.Counter} times.");
+    }
+}
+```
+```yaml
+# in Resources/Prototypes/test.yml
+- type: entity
+  parent: BaseItem
+  id: ExampleItem
+  name: Prediction Example Item
+  components:
+  - type: Sprite
+    sprite: Objects/Fun/Plushies/lizard.rsi
+    state: icon
+  - type: PredictionExample
+```
+
+
+Если мы посмотрим на это в игре, то заметим, что verb, текст осмотра, popup и звук происходят с задержкой относительно нашего фактического клика мыши.
+
+![prediction-guide-unpredicted.gif](/images/ss14-by-example/prediction-guide-unpredicted.gif)
+
+Теперь давайте переместим код в shared и настроим networking и prediction.
+
+```csharp
+// In Content.Shared/PredictionExample/PredictionExampleComponent.cs
+
+using Robust.Shared.Audio;
+using Robust.Shared.GameStates;
+
+namespace Content.Shared.PredictionExample;
+
+/// <summary>
+/// We add NetworkedComponent so that the component itself is networked
+/// and AutoGenerateComponentState to enable autonetworking for its datafields.
+/// </summary>
+[RegisterComponent, NetworkedComponent, AutoGenerateComponentState]
+public sealed partial class PredictionExampleComponent : Component
+{
+    /// <summary>
+    /// We add AutoNetworkedField to mark this datafield to be networked when we dirty the component.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public int Counter = 0;
+
+    /// <summary>
+    /// This datafield does not need to be networked, as it never changes after the entity is spawned.
+    /// </summary>
+    [DataField]
+    public SoundSpecifier Sound = new SoundPathSpecifier("/Audio/Machines/machine_switch.ogg");
+}
+
+```
+```csharp
+// In Content.Shared/PredictionExample/PredictionExampleSystem.cs
+
+using Content.Shared.Examine;
+using Content.Shared.Interaction;
+using Content.Shared.Popups;
+using Content.Shared.Verbs;
+using Robust.Shared.Audio.Systems;
+
+namespace Content.Shared.PredictionExample;
+
+// Now this system is predicted.
+// No need to make it abstract and inherit it on the server and client
+// because we don't have server or client exclusive code in this example.
+public sealed class PredictionExampleSystem : EntitySystem
+{
+    [Dependency] private readonly SharedAudioSystem _audio = default!;
+    [Dependency] private readonly SharedPopupSystem _popup = default!;
+
+    public override void Initialize()
+    {
+        base.Initialize();
+
+        SubscribeLocalEvent<PredictionExampleComponent, GetVerbsEvent<Verb>>(OnGetVerb);
+        SubscribeLocalEvent<PredictionExampleComponent, ActivateInWorldEvent>(OnActivate);
+        SubscribeLocalEvent<PredictionExampleComponent, ExaminedEvent>(OnExamine);
+    }
+
+    // The same subscription as before, just in Content.Shared.
+    private void OnGetVerb(Entity<PredictionExampleComponent> ent, ref GetVerbsEvent<Verb> args)
+    {
+        var user = args.User; // We need to save this as a variable since we cannot use ref parameters inside lambda expressions.
+        args.Verbs.Add(new()
+        {
+            Text = "Interaction Verb",
+            Act = () => Interact(ent, user),
+        });
+    }
+
+    // The same subscription as before, just in Content.Shared.
+    private void OnActivate(Entity<PredictionExampleComponent> ent, ref ActivateInWorldEvent args)
+    {
+        Interact(ent, args.User);
+    }
+
+    // We now need to pass in the user so we can predict the popup and audio.
+    public void Interact(Entity<PredictionExampleComponent> ent, EntityUid user)
+    {
+        // Increment the counter.
+        ent.Comp.Counter++;
+
+        // Dirty the component since we changed one of its datafields.
+        // It does not matter where exactly we put this as long as it happens in the same game tick.
+        // I like calling it directly below to make sure I don't forget doing so.
+        Dirty(ent);
+
+        // Use PlayPredicted instead of PlayPvs and pass in the client that predicted the interaction.
+        _audio.PlayPredicted(ent.Comp.Sound, ent.Owner, user);
+
+        // Use PopupPredicted instead of PopupEntity and pass in the client that predicted the interaction.
+        // This popup will be visible to everyone. If you want to show it only to the user then use PopupClient instead.
+        _popup.PopupPredicted($"Interacted {ent.Comp.Counter} times.", ent.Owner, user);
+    }
+
+    // The same subscription as before, just in Content.Shared.
+    public void OnExamine(Entity<PredictionExampleComponent> ent, ref ExaminedEvent args)
+    {
+        args.PushMarkup($"Interacted {ent.Comp.Counter} times.");
+    }
+}
+```
+Результат гораздо более отзывчивый, без задержки для popup, аудио или элементов UI.
+
+![prediction-guide-predicted.gif](/images/ss14-by-example/prediction-guide-predicted.gif)
+
+## Зависимости
+
+Общий код может вызывать только другой общий код, тогда как серверный код может использовать как серверный, так и общий код. Это означает, что если вы хотите предсказать EntitySystem, вам нужно сначала предсказать все его зависимости, чтобы вы могли использовать их в Shared, что часто превращает PR по prediction в гораздо более крупные задачи, чем предполагалось изначально.
+
+Некоторые системы невозможно предсказать, но вы всё равно можете захотеть вызвать некоторые API-методы, которые доступны только на сервере, из Shared. Чтобы обойти это, вы можете добавить пустой виртуальный API-метод в соответствующую общую систему и переопределить его на сервере. Вот пример из [`SharedExplosionSystem`](https://github.com/space-wizards-federation/space-station-14/blob/master/Content.Shared/Explosion/EntitySystems/SharedExplosionSystem.cs):
+```csharp
+// In Content.Shared/Explosion/EntitySystems/SharedExplosionSystem.cs
+// This method is empty and does nothing on the client.
+public virtual void TriggerExplosive(EntityUid uid, ExplosiveComponent? explosive = null, bool delete = true, float? totalIntensity = null, float? radius = null, EntityUid? user = null)
+{
+}
+
+// In Content.Server/Explosion/EntitySystems/ExplosionSystem.cs
+// This contains the actual code and only runs on the server, but can still be called from shared, since shared code runs on both the server and client.
+public override void TriggerExplosive(EntityUid uid, ExplosiveComponent? explosive = null, bool delete = true, float? totalIntensity = null, float? radius = null, EntityUid? user = null)
+{
+    // Some code in here that creates the explosion
+}
+```
+
+## PopupPredicted & PlayPredicted
+
+Использование `SharedPopupSystem.PopupEntity` в предсказанном коде приведёт к тому, что popup будет показан несколько раз во время prediction. Вместо этого вы должны использовать `PopupPredicted`, который предскажет popup один раз для клиента, переданного через параметр `user`, а сервер отправит popup всем остальным, исключая этого клиента, чтобы они не увидели popup дважды.
+Другие варианты popup, `PopopCursor` и `PopupCoordinates`, также должны быть заменены на их предсказанные варианты соответственно. `PopupClient` работает как `PopupEntity` и показывает popup над указанной entity, но только для одного клиента, который предсказывает взаимодействие.
+
+API аудио работает точно так же, как `SharedAudioSystem.PlayEntity`. Вам нужно использовать `PlayPredicted` и передать пользователя, чтобы предотвратить многократное воспроизведение звука на клиенте.
+
+У этих API есть несколько ограничений:
+- Вы всегда должны знать пользователя — entity, к которой в данный момент прикреплена сессия локального игрока, поэтому вам нужно передавать его в каждый метод, где вы хотите воспроизвести аудио или показать popup.
+- Вы не можете предсказывать аудио и popup в update loops, так как они не имеют одного пользователя, а предсказываются для всех клиентов.
+- Вы не можете предсказывать аудио и popup в подписках на события контейнера, такие как `EntInsertedIntoContainerMessage`, так как они не сообщают вам пользователя, который вызвал событие.
+- Вы не можете запускать общий код с использованием предсказанных popup или аудио с сервера непредсказуемым способом, так как сервер всё равно будет предполагать, что пользователь уже предсказал popup или звук, а значит, они вообще их не увидят или не услышат.
+
+В идеале эти два API будут переработаны в будущем, чтобы позволить клиенту автоматически согласовывать с состоянием сервера, так что передача пользователя больше не потребуется, а prediction будет обрабатываться автоматически.
+
+## Предсказанный спавн и удаление entity
+[`IEntityManager`](https://github.com/space-wizards-federation/RobustToolbox/blob/master/Robust.Shared/GameObjects/IEntityManager.cs) имеет несколько методов для предсказанного спавна и удаления entity. Внутри `EntitySystem` также есть сокращения, см. [`EntitySystem.Proxy.cs`](https://github.com/space-wizards-federation/RobustToolbox/blob/master/Robust.Shared/GameObjects/EntitySystem.Proxy.cs).
+
+#### Спавн
+`Spawn`, `SpawnAttachedTo`, `SpawnAtPosition` можно использовать для спавна entity как на стороне клиента, так и на стороне сервера. Пример использования клиентских entity — это превью спрайтов в меню спавна или руководстве, или для некоторых визуальных эффектов. Если вы вызываете эти методы в общем коде, и клиент, и сервер создадут entity отдельно; сервер отправит свою entity клиенту, в результате чего появятся две разные entity, одна из которых — дубликат, существующий только для них и не исчезающий. Вместо этого вы должны использовать `PredictedSpawnAttachedTo` и `PredictedSpawnAtPosition` (`Spawn` не имеет предсказанного эквивалента). Это создаст как отдельную клиентскую, так и серверную entity, а клиентская будет удалена, когда придёт состояние сервера, и серверная entity заменит её.
+
+Это имеет некоторые ограничения: при текущей реализации предсказанно созданная entity не согласовывается с состоянием игры на сервере. Например, с клиентской entity нельзя взаимодействовать, и анимированные спрайты будут сбрасываться при замене entity, вызывая визуальные глитчи.
+
+В будущем потребуются дальнейшие изменения движка, см. [Entity spawn prediction v2](https://github.com/space-wizards-federation/RobustToolbox/issues/5845).
+
+#### Удаление
+Если вы попытаетесь использовать `DeleteEntity` или `QueueDeleteEntity`, чтобы клиент удалил не-клиентскую entity, это вызовет ошибку:
+`[ERRO] root: Predicting the deletion of a networked entity`.
+
+Если вы хотите предсказать удаление entity, используйте эквивалент `PredictedDeleteEntity` или `PredictedQueueDeleteEntity`. Они позволят клиенту сначала переместить entity в nullspace, что заставит её исчезнуть. Сервер удаляет её обычным образом, а затем отправляет информацию об удалении клиенту.
+
+## IGameTiming.IsFirstTimePredicted
+Это возвращает `true` при первом выполнении кода и `false` при всех последующих тиках prediction, пока клиент ожидает сервер. На сервере это всегда возвращает `true` (сервер ничего не предсказывает, поэтому ему нужно выполнить код только один раз). Это обычно используется внутри в виде guard statement в API-методах для popup, аудио и для некоторого UI-кода, чтобы предотвратить его многократное выполнение или мерцание во время prediction.
+
+Это не серебряная пуля для разрешения любых mispredict! Это предназначено только для аудиовизуальной информации, показываемой игроку, и большинство API-методов уже включают это там, где необходимо. Поэтому, если у вас есть mispredict, убедитесь, что вы правильно его исправили, и проверьте, используете ли вы правильные предсказанные варианты API-методов, такие как `PlayPredicted`, и что ваши компоненты помечаются как dirty всякий раз, когда вы изменяете их поля данных.
+
+`IsFirstTimePredicted` в настоящее время [неправильно используется по всей кодовой базе](https://github.com/space-wizards-federation/space-station-14/issues/41116) для скрытия mispredict, так что не доверяйте существующему коду в этом вопросе. Это не исправляет основную проблему, а скорее отключает prediction.
+
+## IGameTiming.ApplyingState
+Это возвращает `true`, пока клиент перематывает своё собственное состояние игры к состоянию, полученному от сервера и принадлежащему предыдущему игровому тику, чтобы любые различия между ними могли быть исправлены. Это обычно используется в виде guard statement, чтобы позволить правильно применять состояния сервера и предотвратить выполнение кода, когда он не должен выполняться.
+
+Чтобы понять, зачем это нужно, вы должны знать, что некоторые события передаются по сети вместе с состоянием компонента и всегда вызываются как на сервере, так и на клиенте, даже если не предсказаны, и они используют только `RaiseLocalEvent` и `SubscribeLocalEvent`.
+
+В качестве примера для событий контейнера, таких как `EntInsertedIntoContainerMessage`, есть два сценария:
+
+A) Вставка entity в контейнер предсказана, и событие вызывается локально как на сервере, так и на клиенте. Сервер отправляет новое состояние игры клиенту, клиент обнаруживает, что различий нет, так как изменение контейнера уже было предсказано, и не должен ничего исправлять. Во время предсказания вставки клиент будет быстро вызывать как `EntInsertedIntoContainerMessage`, так и `EntRemovedFromContainerMessage` по мере перемотки и повторного применения ввода игрока до тех пор, пока не поступит состояние сервера, подтверждающее их.
+
+B) Вставка entity в контейнер не предсказана (например, если это вызвал другой игрок), то событие сначала вызывается только на сервере локально. Затем сервер отправляет новое состояние игры клиенту, который его применяет. При этом клиент вставит entity в клиентский контейнер, и `EntInsertedIntoContainerMessage` будет вызван один раз на стороне клиента.
+
+Это сделано для того, чтобы позволить клиенту обновлять UI, даже если он не предсказал событие, например, окно хранения вашего рюкзака, индикатор руки или наложение повреждений. Но это также может вызывать проблемы во время подписок, так как любые изменения, сделанные внутри них, уже переданы по сети отдельно в том же состоянии игры, что означает, что они будут применены несколько раз, вызывая mispredicts.
+
+Давайте посмотрим на пример из `GlueSystem`
+```csharp
+// GluedComponent will make an item temporarily unremovable if you pick it up.
+private void OnHandPickUp(Entity<GluedComponent> entity, ref GotEquippedHandEvent args)
+{
+    // When your client predicts picking up an item, due to the game state being repeatedly reset and your input being reapplied
+    // the item will be rapidly inserted and dropped from your hand (about 10 times each) during prediction. 
+    // This will raise both GotEquippedHandEvent and GotUnequippedHandEvent in alternating order.
+    // Similarly when you predict dropping a glued item prediction will reinsert the item into the hand when rerolling the state to a previous one.
+    // So dropping the item would add UnremoveableComponent on the client without this guard statement,
+    // preventing the client from picking it up again, which would cause mispredicts.
+    // However, adding and removing the UnremovableComponent and setting the datafields is already applied with the same game state,
+    // so we don't have to do anything in that case, fixing the problem.
+    if (_timing.ApplyingState)
+        return;
+
+    var comp = EnsureComp<UnremoveableComponent>(entity);
+    comp.DeleteOnDrop = false;
+    entity.Comp.Until = _timing.CurTime + entity.Comp.Duration;
+    Dirty(entity.Owner, comp);
+    Dirty(entity);
+}
+```
+
+В настоящее время нет последовательного указания или схемы именования, показывающей, какие события ведут себя таким образом, поэтому вам придётся проверять самостоятельно, где вызываются события, на которые вы подписываетесь, и может ли вам понадобиться guard statement `ApplyingState`.
+
+Самые распространённые из них:
+`EntInsertedIntoContainerMessage`
+`EntGotInsertedIntoContainerMessage`
+`EntRemovedFromContainerMessage`
+`EntGotRemovedFromContainerMessage`
+`ContainerIsInsertingAttemptEvent`
+`ContainerGettingInsertedAttemptEvent`
+`ContainerIsRemovingAttemptEvent`
+`ContainerGettingRemovedAttemptEvent`
+`DamageChangedEvent`
+`HandCountChangedEvent`
+`GotEquippedEvent`
+`GotEquippedHandEvent`
+`GotUnequippedEvent`
+`GotUnequippedHandEvent`
+`DroppedEvent`
+`SolutionChangedEvent`
+`SolutionContainerChangedEvent`
+
+## Пример предсказанного update loop
+
+Много старого кода накапливает frametime внутри update loops для решения, когда запускать его дальше.
+```csharp
+/// <summary>
+/// Unpredicted example.
+/// </summary>
+[RegisterComponent]
+public sealed partial class UpdateLoopExampleComponent : Component
+{
+    /// <summary>
+    /// How much time has passed since the last update?
+    /// In seconds.
+    /// </summary>
+    [DataField]
+    public float Accumulator = 0f;
+
+    /// <summary>
+    /// The time interval for the update loop (we don't want to run it every single tick for performance reasons).
+    /// In seconds.
+    /// </summary>
+    [DataField]
+    public float UpdateInterval = 1f;
+}
+
+public sealed class UpdateLoopExampleSystem : EntitySystem
+{
+    public override void Update(float frameTime)
+    {
+        // Loop over all components, ignoring paused entities.
+        var query = EntityQueryEnumerator<UpdateLoopExampleComponent>();
+        while (query.MoveNext(out var uid, out var comp))
+        {
+            comp.Accumulator += frameTime;
+
+            if (comp.Accumulator < UpdateInterval)
+                continue; // Not enough time has passed since the last update.
+        
+            // Reset the accumulator.
+            comp.Accumulator -= UpdateInterval;
+        
+            // Do stuff here.
+        }
+    }
+}
+```
+Это плохо для prediction, так как делать dirty поля данных accumulator каждый тик было бы дорого из-за сетевой нагрузки, если нам приходится многократно отправлять обновления состояния игры с сервера. Поэтому вместо накопления времени кадра мы используем временную метку, указывающую, когда должно произойти следующее обновление, и сравниваем её с текущим серверным временем.
+
+```csharp
+/// <summary>
+/// Predicted example.
+/// We need to network the component for this.
+/// </summary>
+[RegisterComponent, NetworkedComponent]
+[AutoGenerateComponentState, AutoGenerateComponentPause]
+public sealed partial class UpdateLoopExampleComponent : Component
+{
+    /// <summary>
+    /// The server time at which the next update will happen.
+    /// We use AutoPausedField so that this is automatically incremented if the server is paused and unpaused again.
+    /// Otherwise all update loops would instantly fire when unpausing.
+    /// We use the TimeOffsetSerializer to let this datafield be serialized relative to the current server time.
+    /// This is important for persistance and without it you would get different results depending on when you load a game save.
+    /// This datafield needs to be networked so that the server and client will be able to update simultaneously.
+    /// </summary>
+    [DataField(customTypeSerializer: typeof(TimeOffsetSerializer))]
+    [AutoNetworkedField, AutoPausedField]
+    public TimeSpan NextUpdate = TimeSpan.Zero;
+
+    /// <summary>
+    /// The time interval for the update loop (we don't want to run it every single tick for performance reasons).
+    /// Does not need to be networked since this value remains constant in this example.
+    /// </summary>
+    [DataField]
+    public TimeSpan UpdateInterval = TimeSpan.FromSeconds(1);
+}
+
+public sealed class UpdateLoopExampleSystem : EntitySystem
+{
+    [Dependency] private readonly IGameTiming _timing = default!;
+
+    public override void Initialize()
+    {
+        SubscribeLocalEvent<UpdateLoopExampleComponent, MapInitEvent>(OnMapInit)
+    }
+    
+    private void OnMapInit(Entity<UpdateLoopExampleComponent> ent, ref MapInitEvent args)
+    {
+        // Set the first update time after the entity is spawned.
+        // Without this it would update every single tick until NextUpdate catches up with the server time.
+        ent.Comp.NextUpdate = _timing.CurTime + ent.Comp.UpdateInterval;
+        Dirty(ent);
+    }
+
+    public override void Update(float frameTime)
+    {
+        // CurTime is calculated so we do it only once outside the update loop instead of for every sigle entity.
+        var curTime = _timing.Curtime;
+        // Loop over all components, ignoring paused entities.
+        var query = EntityQueryEnumerator<UpdateLoopExampleComponent>();
+        while (query.MoveNext(out var uid, out var comp))
+        {
+            if (comp.NextUpdate < curTime)
+                continue; // Not enough time has passed since the last update.
+        
+            // Set the time for the next update.
+            // Don't use
+            // comp.NextUpdate = curTime + UpdateInterval;
+            // because that eats the remainder with every update, causing the update loop to run slightly less often
+            // than given by UpdateInterval, which will be imprecise and can cause problems over large time durations.
+            comp.NextUpdate += UpdateInterval;
+        
+            // Dirty the component so that the client can reroll the NextUpdate datafield during predcition.
+            // Without this you will get mispredicts.
+            Dirty(uid, comp);
+        
+            // Do stuff here.
+        }
+    }
+}
+```
+
+Если ваш компонент имеет несколько сетевых полей данных, рассмотрите возможность использования field deltas, чтобы предотвратить отправку всех их по сети с каждым обновлением из update loop.
+
+## PVS
+
+Чтобы уменьшить сетевую нагрузку на сервер, он будет передавать по сети только те entity, которые находятся в определённом радиусе (по умолчанию квадрат 25x25 вокруг entity, к которой прикреплён клиент). Если entity покидает радиус PVS, она будет приостановлена, так что update loops больше не будут выполняться на клиенте, и она будет отсоединена в nullspace на клиенте до тех пор, пока снова не войдёт в радиус PVS.
+
+Если вы хотите увидеть это в действии, вы можете полетать в режиме aghost, отдалив вид.
+
+![prediction-guide-pvs.gif](/images/ss14-by-example/prediction-guide-pvs.gif)
+
+Поскольку сервер хранит авторитетное состояние игры, он всегда обладает полной информацией обо всех entity, но клиент будет ограничен в доступной ему информации, что имеет последствия для prediction. Клиент не сможет предсказать ничего, что происходит за пределами радиуса PVS, и некоторый код, такой как atmos или power, не может быть предсказан в результате.
+
+#### Nullspace
+
+Nullspace — это пустая карта по умолчанию, куда entity создаются, если вы не указываете место спавна. Обычно используется для entity, представляющих «абстрактные» данные — то, что нужно отслеживать, но что не имеет физического местоположения.
+
+Примеры entity, живущих в nullspace: цели антагонистов и entity mind/mind role, которые хранят информацию о статусе антагониста игрока. Поскольку они находятся на другой карте, эти entity не передаются игроку по сети. Это гарантирует, что читеры не смогут прочитать статус антагониста других игроков. Игрок получает PVS override для своей собственной mind entity, что означает, что его клиент может видеть её, даже если она на другой карте. Это позволяет предсказывать взаимодействия, зависящие от собственного mind (например, только ниндзя могут устанавливать заряды ниндзя-паука), но не взаимодействия, требующие информации о mind других игроков.
+
+#### PVS overrides
+
+Если вы хотите передать по сети или предсказать что-то, находящееся за пределами радиуса PVS, вам понадобится PVS override. Используйте их экономно, так как они добавляют дополнительную сетевую нагрузку.
+
+- `AddSessionOverride`: Делает определённую entity всегда видимой для данного игрока до тех пор, пока override не будет удалён. Пример использования — способность возврата (recall) волшебника, которая телепортирует далёкую entity, ранее отмеченную, обратно в вашу руку.
+- `AddGlobalOverride`: Делает эту entity всегда видимой для всех игроков, независимо от PVS. Пример — сингулярность, у которой это есть из-за большого радиуса эффекта наложения искажения, без override она бы появлялась из ниоткуда при входе в радиус PVS.
+- `AddViewSubscriber`: Позволяет игроку видеть все entity в радиусе PVS от указанной entity до отписки. Пример использования — камеры, которые позволяют игроку наблюдать за удалёнными местами через второй видовой экран.
+
+## Сессионно-специфичный networking
+
+По умолчанию все клиенты будут получать полную информацию обо всех сетевых компонентах и их полях данных в радиусе PVS. Хотя они не могут прочитать всю эту информацию, не будучи администратором и не используя окно ViewVariables, некоторые читеры всё равно могут использовать это для получения скрытой информации, доступной на их клиенте, например, статуса антагониста или наличия контрабанды в инвентаре. Поэтому будьте осторожны с информацией, которую вы передаёте по сети для целей prediction, и при необходимости используйте следующие инструменты, чтобы ограничить её только теми клиентами, которым нужно знать.
+
+#### SendOnlyToOwner
+
+Все компоненты имеют bool `SendOnlyToOwner`, который приведёт к тому, что компонент будет передан по сети только игроку, если он прикреплён к entity, которой принадлежит компонент. Это полезно для некоторых способностей или черт предателя, о которых нужно знать только пользователю. Пример — `PacifiedComponent`, который делает вас неспособным атаковать других, но другим игрокам не нужно знать о нём для целей prediction, так как они не могут предсказать ввод с клавиатуры от pacified-игрока (сервер должен сначала отправить его им).
+
+#### SessionSpecific
+
+Все компоненты имеют bool `SessionSpecific`, который приведёт к тому, что на entity-владельце для каждого игрока, которому передаётся компонент, будет вызвано событие `ComponentGetStateAttemptEvent`, и позволит вам отменить передачу в подписке. Обратите внимание, что это сопряжено с некоторыми накладными расходами на производительность, так как может вызвать много событий.
+Пример этого — [`SharedRevolutionarySystem`](https://github.com/space-wizards-federation/space-station-14/blob/master/Content.Shared/Revolutionary/SharedRevolutionarySystem.cs), который использует это, чтобы позволить только революционерам и администраторам знать, кто ещё является революционером. Однако API для этого в настоящее время довольно неудобен в использовании и требует много шаблонного кода. Возможно, в будущем это можно будет упростить до whitelist компонентов, чтобы решить, кто может видеть определённый session-specific компонент.
+
+## Предсказанная случайность
+
+Если вы используете `RobustRandom` в общем коде, сервер и клиент получат разные случайные результаты, что вызовет mispredicts. Что ещё хуже, клиент также будет генерировать другой результат для каждого тика prediction. Это часто происходит для случайного спавна, рандомизированных цветов спрайтов, случайных местоположений и т.п.
+
+Вот пример mispredict при гиббовании (gibbing) кого-либо, чтобы вы знали, на что обращать внимание. Обратите внимание, как органы хаотично прыгают, потому что каждый тик prediction перемещает их в другое случайное место.
+
+![prediction-guide-mispredict.gif](/images/ss14-by-example/prediction-guide-mispredict.gif)
+
+В будущем Robust Toolbox будет иметь методы для предсказанной случайности, но на момент написания [PR для RandomPredicted](https://github.com/space-wizards-federation/RobustToolbox/pull/5849) ещё не был слит.
+В качестве обходного пути вы можете использовать новый экземпляр `System.Random` и установить seed для того, с чем сервер и клиент согласны, например, комбинация `NetEntity` id entity и текущего игрового тика (если бы вы использовали только игровой тик, то вся случайность в пределах одного игрового тика давала бы одинаковый результат, поэтому нам нужно и то, и другое). Для этого есть вспомогательный метод в `SharedRandomExtensions`.
+
+```csharp
+// EntitySystem dependencies:
+// [Dependency] private readonly IGameTiming _timing = default!;
+// [Dependency] private readonly IRobustRandom _random = default!;
+
+// This will mispredict:
+bool randomBool = _random.Prob(0.5f);
+double randomDouble = _random.NextDouble();
+
+// Instead use this:
+bool randomBoolPredicted = SharedRandomExtensions.PredictedProb(_timing, 0.5f, GetNetEntity(uid)); // Helper method that directly gives you a bool.
+var rand = SharedRandomExtensions.PredictedRandom(_timing, GetNetEntity(uid)); // Create a new System.Random instance that is the same on the server and client.
+double randomDoublePredicted = rand.NextDouble(); // Create some random number from it.
+
+// Same for any other method in IRobustRandom, since it is just a System.Random wrapper.
+// If you generate multiple random numbers in the same tick for the same entity then you can re-use the System.Random instance instead of instantiating a new one for each call.
+```
+
+Будьте осторожны с этим, так как читер, знающий соответствующий `NetEntity` id, теоретически может повлиять на результат, если дождётся правильного игрового тика для отправки пользовательского ввода. Поэтому любые игровые функции, которые могут дать вам серьёзное преимущество, такие как случайный спавн предметов, скидки на телекристаллы в магазинах, выбор антага или цели и т.д., должны оставаться непредсказанными, если игрок может точно рассчитать время.
+
+## WeakEntityReference
+
+Согласно соглашению, используемому в нашей ECS, `EntityUid` всегда должен ссылаться на валидную, существующую entity. Если у вас есть автоматически сетевое поле данных типа `EntityUid`, source generator преобразует его в `NetEntity`, отправит клиенту и преобразует обратно в соответствующий `EntityUid` на клиенте (который будет иметь другой id, чем на сервере). Чтобы получить `NetEntity`, серверу нужно будет прочитать `MetaDataComponent` entity. Однако, если entity удалена каким-либо образом (например, съедена сингулярностью, переработана, гиббована или использована для крафта), компонент будет удалён вместе с ней. Это приводит к ошибке, когда сервер пытается передать компонент, содержащий `EntityUid`, ссылающийся на удалённую entity:
+```
+Can't resolve "Robust.Shared.GameObjects.MetaDataComponent" on entity 957132/n0D!
+   at System.Environment.get_StackTrace()
+   at Robust.Shared.GameObjects.EntityManager.GetNetEntity(EntityUid uid, MetaDataComponent metadata) in /home/runner/work/space-station-14/space-station-14/RobustToolbox/Robust.Shared/GameObjects/EntityManager.Network.cs:line 186
+...
+```
+
+Чтобы предотвратить это, вы должны сбросить поле данных обратно в `null`, если entity каким-либо образом удалена, однако за этим сложно уследить, требуются маркерные компоненты и много шаблонного кода.
+
+На момент написания серверы WizDen получают более 20000 таких ошибок каждый день, и для их решения потребуются некоторые изменения движка, вводящие `WeakEntityReference`, который ссылается на entity, которая может быть удалена. Альтернативно может быть введена система отношений, которая будет автоматически сбрасывать ссылающееся поле данных обратно в `null`. Как только PR движка будет слит, репозиторий контента потребует некоторой очистки, чтобы избавиться от этих ошибок.
+
+См. [эту issue](https://github.com/space-wizards-federation/RobustToolbox/issues/6152) для получения более подробной информации.
+
+## NetSync
+
+Каждый компонент наследует поле данных `netsync` от базового класса компонента. Установка этого поля в `false` отключит его networking, что означает, что dirty-метка компонента ничего не даст.
+Это полезно, если вы хотите разрешить клиентам изменять поля данных компонента без перезаписи состоянием игры от сервера или намеренно оставить компонент непредсказанным.
+
+## Предсказание BUI
+
+`BoundUserInterfaces` обычно отправляют любую необходимую информацию клиенту с помощью `BoundUserInterfaceState`, что аналогично ручному networking. Но если мы уже передаём соответствующие поля данных по сети, то клиент уже имеет всю эту информацию, и состояние BUI является просто дублирующимся networking. Вместо этого мы можем полностью удалить состояние BUI и просто читать необходимую информацию напрямую из компонента, используя `TryComp` на клиенте. Интерфейс затем можно обновить в подписке на `AfterAutoHandleStateEvent` (не забудьте активировать его, установив параметр `raiseAfterAutoHandleState` в `AutoGenerateComponentStateAttribute`), чтобы он корректировался всякий раз, когда изменяется поле данных в соответствующем компоненте. Если вам нужно обновить BUI, когда entity вставляется или извлекается из контейнера, вы можете сделать это с помощью подписки на `EntInsertedIntoContainerMessage` или `EntRemovedFromContainerMessage`.
+
+Для отправки сообщений о нажатиях кнопок и других пользовательских вводах из UI от клиента к серверу вы должны использовать `SendPredictedMessage` вместо `SendMessage`, чтобы клиент мог предсказать их.
+
+Чтобы убедиться, что BUI также обновляется во время prediction, а не только при получении состояния сервера, вам также понадобится пустой виртуальный метод `UpdateUi` в вашем общем коде, который будет вызывать метод `Update` BUI в клиентском переопределении.
+
+Хороший пример кода для предсказания BUI с использованием component states можно найти в [этом PR](https://github.com/space-wizards-federation/space-station-14/pull/33835).
+
+## На что обратить внимание
+#### Советы по производительности
+
+Dirty и networking — дорогие операции. Избегайте установки dirty-метки entity каждый тик из update loop. Подумайте о том, как минимизировать количество данных, которые вам нужно отправлять. Например, в таких системах, как [hunger](https://github.com/space-wizards-federation/space-station-14/blob/master/Content.Shared/Nutrition/EntitySystems/HungerSystem.cs) или [battery charge](https://github.com/space-wizards-federation/space-station-14/blob/master/Content.Shared/Power/EntitySystems/SharedBatterySystem.API.cs), не передавайте по сети новое значение голода или заряда повторно, а отправляйте только значение в определённую временную метку вместе с текущей скоростью изменения. Таким образом, клиент всегда может вычислить текущее значение без необходимости отправки нового состояния игры.
+
+При установке поля данных рекомендуется добавить guard statement для проверки, имеет ли поле данных новое значение, перед вызовом `Dirty`, чтобы мы передавали его по сети только когда это действительно необходимо.
+
+```csharp
+// inside an EntitySystem
+
+public void SetExampleDataField(Entity<ExampleComponent?> ent, int newValue)
+{
+    if (!Resolve(ent, ref ent.Comp))
+        return; // do nothing if the entity does not have the component
+    
+    if (ent.Comp.ExampleDataField == newValue)
+        return; // nothing changed, no need to dirty
+        
+    // set the datafield and dirty the component
+    ent.Comp.ExampleDataField = newValue;
+    Dirty(ent);
+}
+```
+
+Рекомендуется давать вашим компонентам ограничения доступа с помощью `[Access(typeof(SomeSystem))]`, чтобы только соответствующая система могла устанавливать его поля данных с помощью методов-сеттеров, как в примере выше. Это гарантирует, что другие системы могут изменять компонент только предусмотренными способами и что они не могут забыть сделать dirty компонента, а хороший API делает будущие изменения компонента менее ломающими.
+
+#### Выполнение предсказанного кода с сервера
+
+Просто потому, что ваш код находится в shared, не означает, что он будет предсказан. Если событие вызывается только на сервере, клиент волшебным образом не запустит никакие общие подписки, а только скорректирует компоненты после получения состояния сервера. Поэтому убедитесь, что событие, на которое вы подписываетесь, также вызывается предсказуемым образом, если вы хотите, чтобы ваш код был предсказан. Обратите внимание, что это не всегда возможно, например, для кода atmos, который не может быть предсказан.
+
+В большинстве случаев рекомендуется определять события и компоненты в `Content.Shared`, даже если вы используете их только на сервере. Это позволяет использовать их для клиентских entity и упрощает задачу, если кто-то захочет предсказать их в будущем.
+
+#### IRobustCloneable
+
+Prediction многократно сбрасывает любое помеченное как dirty поле данных обратно к предыдущему состоянию игры и повторно симулирует ввод игрока. Однако, если ваше поле данных является [ссылочным типом](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/reference-types), будет сброшена только ссылка на это поле данных, а не текущее значение поля данных. Это может привести к [mispredicts](https://github.com/space-wizards-federation/space-station-14/pull/34838) и даже [серьёзным графическим глитчам](https://github.com/space-wizards-federation/space-station-14/issues/38512), если не обработано правильно. Чтобы исправить это, убедитесь, что вы реализуете интерфейс `IRobustCloneable` при использовании авто-нетворкинга с любым пользовательским ссылочным типом, который вы передаёте по сети, и source generator позаботится о создании глубокой копии поля данных для каждого состояния игры. Пример кода для этого — класс [`Solution`](https://github.com/space-wizards-federation/space-station-14/blob/master/Content.Shared/Chemistry/Components/Solution.cs), используемый в [`SolutionComponent`](https://github.com/space-wizards-federation/space-station-14/blob/master/Content.Shared/Chemistry/Components/SolutionComponent.cs).
+
+#### Соглашения для shared systems и components
+
+EntitySystems должны быть либо неабстрактными и общими, например:
+```csharp
+// In Content.Shared/SomeNamespace/SomeSystem.cs
+public sealed class SomeSystem : EntitySystem
+{
+    // ...
+}
+
+```
+или иметь общую абстрактную систему, которая наследуется на сервере и клиенте.
+
+```csharp
+// In Content.Shared/SomeNamespace/SharedSomeSystem.cs
+public abstract class SharedSomeSystem : EntitySystem
+{
+    // ...
+}
+
+// In Content.Server/SomeNamespace/SomeSystem.cs
+public sealed class SomeSystem : SharedSomeSystem
+{
+    // ...
+}
+
+// In Content.Client/SomeNamespace/SomeSystem.cs
+public sealed class SomeSystem : SharedSomeSystem
+{
+    // ...
+}
+```
+Не забывайте о клиентской системе, даже если она пуста. В противном случае клиент не сможет создать экземпляр системы, и она останется непредсказанной.
+
+Избегайте общих абстрактных компонентов. Некоторый древний код всё ещё делает это, но в наши мы просто помещаем весь компонент в `Content.Shared`, даже если некоторые поля данных используются только на сервере или клиенте. Это незначительно ухудшает производительность, но делает код гораздо более читаемым, упрощает любые API-методы и облегчает использование `TryComp` и `Resolve`.
+
+#### Debug assert в UdderSystem
+
+В настоящее время существует странное поведение с solution entities и PVS, которое может вызывать debug assert при определённых обстоятельствах и потребует обходного пути, см. [этот PR](https://github.com/space-wizards-federation/space-station-14/pull/35314). Я упоминаю это здесь, потому что в противном случае это сложно выяснить.
+
+Этот debug assert происходит, если предсказанный update loop вызывает `SharedSolutionContainerSystem.ResolveSolution`, и entity, содержащая solution entity, покидает радиус PVS. Этого не должно происходить, поскольку entity приостанавливаются при перемещении за пределы радиуса PVS, что означает, что update loop больше не должен выполняться на клиенте, но по какой-то причине это всё ещё вызывает debug assert и требует обходного пути, пока это не будет исправлено должным образом способом, не требующим этого шаблонного кода.
+
+```csharp
+private void OnEntRemoved(Entity<UdderComponent> entity, ref EntRemovedFromContainerMessage args)
+{
+    // Make sure the removed entity was our contained solution
+    if (entity.Comp.Solution == null || args.Entity != entity.Comp.Solution.Value.Owner)
+        return;
+
+    // Cleared our cached reference to the solution entity
+    entity.Comp.Solution = null;
+}
+```
+
+Это гарантирует, что кэшированная ссылка на solution entity сбрасывается в null, когда она покидает радиус PVS и отсоединяется в nullspace.
+
+См. [эту issue](https://github.com/space-wizards-federation/space-station-14/issues/42218) для текущего состояния этой проблемы.
+
+#### Используйте NetworkedComponentAttribute только для shared components
+
+Добавление `[NetworkedComponent]` к чисто серверному или клиентскому компоненту (т.е. не в `Content.Shared`) не имеет смысла, поскольку они в первую очередь не могут быть переданы по сети.
+Однако на момент написания RobustToolbox не препятствует этому, и вместо создания предупреждения или ошибки просто молча ломается. Симптомы включают случайное прекращение передачи других компонентов клиенту, что вызовет огромный спектр багов, например mispredicts и UI, которые не заполняются. Так что на это стоит обращать внимание при ревью или написании нового кода.
+
+См. [эту issue](https://github.com/space-wizards-federation/RobustToolbox/issues/5194) для текущего состояния этой проблемы.

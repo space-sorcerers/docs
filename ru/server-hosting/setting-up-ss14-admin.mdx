@@ -1,0 +1,224 @@
+---
+title: "Настройка SS14.Admin"
+---
+
+[SS14.Admin](https://github.com/space-wizards-federation/SS14.Admin/) — это веб-панель для администрирования серверов SS14, предоставляющая различные [функции](../community/admin/admin-tooling#ss14admin), критически важные для серьёзных серверов.
+
+Этот документ объяснит, что вам понадобится для настройки собственного экземпляра SS14.Admin.
+
+## Обзор
+
+SS14.Admin подключается напрямую к базе данных вашего игрового сервера, что позволяет просматривать все данные об игроках, банах, администраторах и т.д. Затем эти данные доступны администраторам игрового сервера через их веб-браузер. Администраторы входят в SS14.Admin напрямую через свою учётную запись SS14 с помощью [OAuth](../server-hosting/oauth).
+
+## Предварительные требования
+
+- Ваш игровой сервер должен быть настроен на использование **PostgreSQL** в качестве движка базы данных. Использовать SS14.Admin с SQLite невозможно.
+- Доменное имя для размещения SS14.Admin.
+- Сервер обратного прокси, например Nginx или Caddy.
+
+## Установка
+
+Мы предоставляем официальные образы контейнеров SS14.Admin через GitHub Container Registry. Кроме того, у нас есть инструкции по самостоятельной сборке проекта с помощью .NET SDK.
+
+### Образ контейнера
+
+Последний стабильный образ SS14.Admin — `ghcr.io/space-wizards-federation/ss14.admin:1`. Информация о контейнере:
+
+* Слушает на порту 8080
+* UID/GID по умолчанию — 1654
+* Важные тома для монтирования:
+  * `/app/appsettings.yml`: основной конфигурационный файл.
+
+Вот пример `docker-compose.yml`, пожалуйста, измените его под свои нужды.
+
+```
+services:
+  ss14_admin:
+    image: ghcr.io/space-wizards-federation/ss14.admin:1
+    container_name: ss14_admin
+    user: 1654:1654
+    volumes:
+      - ./appsettings.yml:/app/appsettings.yml
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+```
+
+### Ручная компиляция
+
+Если вы ненавидите контейнеры, вы можете вручную опубликовать SS14.Admin и развернуть файлы самостоятельно. Для этого вам понадобятся Git и .NET 10 SDK. Серверу, который будет запускать сборку, требуется соответствующая среда выполнения ASP.NET Core Runtime, но SDK ему не нужен.
+
+Клонируйте git-репозиторий, затем опубликуйте:
+
+```sh
+git clone https://github.com/space-wizards-federation/SS14.Admin.git --recurse-submodules
+cd SS14.Admin
+dotnet publish -c Release -r linux-x64 --no-self-contained
+```
+
+Готовая сборка будет помещена в `SS14.Admin/bin/Release/net9.0/linux-x64/publish`. Вы можете скопировать её в любое удобное место, например в `/opt`, и запускать `SS14.Admin` оттуда. Например:
+
+```
+/opt/ss14_admin/
+├── appsettings.yml
+├── bin
+│   ├── SS14.Admin
+│   ├── SS14.Admin.dll
+    .
+```
+
+Фактические файлы программы помещаются в подпапку, а запускаем мы их из родительской директории, чтобы случайно не затереть конфигурационные файлы при обновлении.
+
+Затем вы можете запускать SS14.Admin автоматически с помощью следующего определения systemd-сервиса:
+
+```ini
+# /etc/systemd/system/ss14-admin.service
+[Unit]
+Description=SS14.Admin
+
+[Service]
+Type=notify
+WorkingDirectory=/opt/ss14_admin/
+ExecStart=/opt/ss14_admin/bin/SS14.Admin
+User=ss14_admin
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Конфигурация
+
+SS14.Admin — это ASP.NET Core-приложение, поэтому оно поддерживает настройку как через конфигурационный файл, так и через другие источники, например переменные окружения. Вы можете обратиться к [документации ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-9.0) для более подробного обзора.
+
+Большая часть конфигурации SS14.Admin осуществляется через конфигурационный файл `appsettings.yml`. Вот полная справка по его содержимому:
+
+```yaml
+Serilog:
+    Using: [ "Serilog.Sinks.Console" ]
+    MinimumLevel:
+        Default: Information
+        Override:
+            SS14: Debug
+            Microsoft: "Warning"
+            Microsoft.Hosting.Lifetime: "Information"
+            Microsoft.AspNetCore: Warning
+            IdentityServer4: Warning
+    WriteTo:
+        - Name: Console
+          Args:
+              OutputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3} {SourceContext}] {Message:lj}{NewLine}{Exception}"
+
+    Enrich: [ "FromLogContext" ]
+
+    #Loki:
+    #    Address: "http://localhost:3102"
+    #    Name: "centcomm"
+
+ConnectionStrings:
+    # Подключите это к той же базе данных PostgreSQL, что и ваш сервер SS14
+    DefaultConnection: "Server=127.0.0.1;Port=5432;Database=ss14;User Id=ss14-admin;Password=foobar"
+
+# Установите это на доменное имя, на котором вы будете размещать SS14.Admin.
+AllowedHosts: "ss14-admin.spacestation14.com"
+
+# Если вы хотите изменить порт веб-сервера, измените его здесь. Я рекомендую использовать обратный прокси для SSL
+urls: "http://localhost:27689/"
+
+# Подпуть, на котором будет размещён сайт.
+# Вы можете пропустить это, если размещаете сайт на собственном поддомене.
+# PathBase: "/admin"
+
+# Убедитесь, что это указывает на wwwroot, он должен находиться в той же директории, что и исполняемый файл
+WebRootPath: "/opt/ss14_admin/bin/wwwroot"
+
+# IP-адреса, которым разрешено обратное проксирование сайта.
+# Измените это, если ваш обратный прокси не приходит с localhost,
+# например, если SS14.Admin работает в контейнере,
+# вы должны добавить IP хоста в сети контейнера.
+ForwardProxies:
+    - 127.0.0.1
+
+# Информация о клиенте OAuth для аутентификации администраторов, см. ниже.
+Auth:
+    Authority: "https://account.spacestation14.com/"
+    ClientId: "9e2ce26f-EDIT-THIS-b4d9-8cc08993b33e"
+    ClientSecret: "foobar"
+
+authServer: "https://auth.spacestation14.com"
+```
+
+<Warning>
+Из-за того, как работает oauth, для успешного входа вам потребуется SSL/HTTPS-соединение. Неважно, будет ли это сертификат от центра сертификации, такого как Let's Encrypt, или самоподписанный. Просто нужно, чтобы сертификат был доверенным, чтобы ваш браузер действительно передал необходимые данные.
+</Warning>
+
+## Конфигурация аутентификации
+
+Чтобы администраторы могли входить напрямую через свою учётную запись SS14, вам нужно зарегистрировать [OAuth-клиент](../server-hosting/oauth) следующим образом:
+
+1. Войдите и перейдите на https://account.spacestation14.com/Identity/Account/Manage/Developer, нажмите «New OAuth App».
+2. Введите имя приложения, может быть любым.
+3. Установите «Authorization callback URL» на адрес вашего экземпляра с добавлением `/signin-oidc`. Примеры:
+  * Если ваш экземпляр доступен по `https://admin.example.com`, укажите `https://admin.example.com/signin-oidc`.
+  * Если ваш экземпляр доступен по `https://example.com/admin`, укажите `https://example.com/admin/signin-oidc`.
+4. Установите «Homepage URL» на основной адрес, по которому доступен ваш экземпляр, например `https://admin.example.com` или `https://example.com/admin`.
+5. Скопируйте **Client ID** в `ClientId` в конфигурационном файле.
+6. Нажмите «Generate new secret» и скопируйте его в `ClientSecret` в конфигурационном файле.
+
+<Warning>
+Ваш client secret будет показан только один раз. Если вы его потеряете — создайте новый.
+</Warning>
+
+## Конфигурация веб-сервера
+
+Скорее всего, вы захотите запускать SS14.Admin за обратным прокси, таким как Nginx или Caddy, для терминации TLS и возможности запуска нескольких сервисов с одного IP-адреса. Вот несколько примеров и инструкций для некоторых веб-серверов.
+
+Обратите внимание, что SS14.Admin, вероятно, не будет работать без HTTPS из-за проблем с безопасностью cookie.
+
+### Caddy
+
+Caddy рекомендуется, если у вас ещё не установлен веб-сервер, так как его очень легко настраивать, и он предоставляет встроенную функциональность, такую как сертификаты Let's Encrypt.
+
+```caddy
+admin.example.com {
+    log {
+        output file /var/log/caddy/access-ss14-admin.log
+    }
+
+    reverse_proxy 127.0.0.1:<ИЗМЕНИТЕ НА ВАШ ПОРТ>
+}
+```
+
+### Nginx
+
+```nginx
+location / {
+    proxy_pass          http://localhost:<ИЗМЕНИТЕ НА ВАШ ПОРТ>;
+    proxy_http_version  1.1;
+    proxy_set_header    Upgrade $http_upgrade;
+    proxy_set_header    Connection keep-alive;
+    proxy_set_header    Host $host;
+    proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header    X-Forwarded-Proto https;
+    proxy_cache_bypass  $http_upgrade;
+
+    # Необходимо для избежания ошибок из-за слишком больших заголовков из-за больших cookie.
+    proxy_buffer_size        128k;
+    proxy_buffers            4 256k;
+    proxy_busy_buffers_size  256k;
+}
+```
+
+## Устранение неполадок
+
+### Ошибка со стороны аутентификации: «An error occurred while processing your request.» при входе
+
+*См. также: [устранение неполадок на основной странице OAuth](./oauth#auth-side-an-error-occurred-while-processing-your-request).*
+
+Это общий код ошибки, если конфигурация OAuth нарушена. Смотрите статью по ссылке выше для возможных причин. Если redirect URI действительно неверен, пожалуйста, проверьте ниже.
+
+### Неверный redirect URI
+
+Неправильный redirect URI часто вызван неверной конфигурацией обратного прокси, либо на стороне прокси, либо на стороне приложения:
+
+* Убедитесь, что ваш обратный прокси отправляет все необходимые заголовки, как показано в примерах конфигурации выше.
+* Если ваш обратный прокси не отправляет запросы на `localhost`, например, если вы используете контейнер, убедитесь, что вы правильно установили `ForwardProxies` в конфигурационном файле SS14.Admin.

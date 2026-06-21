@@ -1,0 +1,491 @@
+﻿---
+title: "Пользовательский интерфейс"
+---
+
+<Danger title="Устарело">Информация на этой странице, вероятно, устарела и может быть неактуальна.</Danger>
+
+Мне лень придумывать элегантный вступительный абзац для этой страницы. Это туториал по UI.
+
+<Info>
+Автодополнение кода может очень помочь в поиске доступных контролов и атрибутов.
+</Info>
+
+## Control
+
+Интерфейс игры состоит из множества Control'ов. Каждый Control — это один элемент UI-системы. Контролы имеют различные функции: одни — очевидные вещи вроде текстовых меток и кнопок, тогда как другие служат для автоматического расположения элементов.
+
+![escape-menu-ui.png](/images/user-interface/escape-menu-ui.png)
+
+Здесь показан базовый UI в игре. Как видите, это окно, состоящее из нескольких кнопок. Однако здесь задействован ещё один контрол — BoxContainer, который автоматически располагает кнопки друг над другом.
+
+Фактический XAML-код разметки этого UI выглядит так (на момент написания). Вы, конечно, не обязаны сейчас понимать всё происходящее:
+
+`xml
+<DefaultWindow xmlns="https://spacestation14.io"
+            xmlns:changelog="clr-namespace:Content.Client.Changelog"
+            xmlns:ui="clr-namespace:Content.Client.Voting.UI"
+            Title="{Loc 'ui-escape-title'}"
+            Resizable="False">
+
+    <BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150">
+        <changelog:ChangelogButton />
+        <ui:VoteCallMenuButton />
+        <Button Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+        <Button Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+        <Button Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+    </BoxContainer>
+</DefaultWindow>
+`
+
+DefaultWindow содержит BoxContainer, который автоматически располагает Button'ы вертикально, а Button'ы содержат Label для отображения текста (Label создаётся автоматически для сокращения кода). Таким образом, контролы UI фактически образуют дерево:
+
+`mermaid
+flowchart TD
+    DefaultWindow --> BoxContainer
+    BoxContainer --> Button1[Button] --> Label1[Label]
+    BoxContainer --> Button2[Button] --> Label2[Label]
+    BoxContainer --> Button3[Button] --> Label3[Label]
+    BoxContainer --> Button4[Button] --> Label4[Label]
+    BoxContainer --> Button5[Button] --> Label5[Label]
+`
+
+### Основная компоновка
+
+Правильное расположение контролов — пожалуй, одна из важнейших частей UI. Ручное размещение контролов (т.е. указание позиций и размеров вручную) — это утомительно, проблематично для изменения размера и т.д. Поэтому UI-система спроектирована так, чтобы вы могли легко компоновать разметку на основе вспомогательных контролов, таких как упомянутый выше BoxContainer.
+
+В этом разделе описывается, как работает компоновка для *одного* контрола. В следующих разделах будут рассмотрены детали для контролов компоновки, таких как BoxContainer.
+
+Все контролы по сути компонуются как набор прямоугольников. У них есть размер и позиция относительно родителя. На следующем скриншоте вы можете увидеть эффективный прямоугольник одной из кнопок:
+
+![escape-menu-button-rect-example.png](/images/user-interface/escape-menu-button-rect-example.png)
+
+(если вам интересно, это просмотрщик UI из devwindow; введите devwindow в игровой консоли и перейдите на вкладку UI.)
+
+А это родительский BoxContainer, содержащий все кнопки:
+
+![escape-menu-button-rect-example-2.png](/images/user-interface/escape-menu-button-rect-example-2.png)
+
+Для правильного понимания системы компоновки нужно объяснить несколько концепций:
+
+Каждый контрол имеет DesiredSize. Это, по сути, «минимальное» пространство, которое контрол хочет иметь, чтобы правильно разместиться без обрезания и т.п. Контролы вычисляют это на основе своего содержимого, и это содержимое, конечно, может включать *другие* контролы, в зависимости от того, о каком контроле идёт речь. Некоторые примеры:
+
+* Label (текстовая метка): фактический размер текста.
+* TextureRect (изображение): если не может сжиматься — размер изображения.
+* BoxContainer: суммарный размер его содержимого, размещённого последовательно.
+* Button: размер содержимого + некоторый отступ для рамки кнопки.
+* Базовый Control: максимум из размеров его дочерних элементов.
+
+Однако, как указано выше, DesiredSize — это только *минимум*. На практике контролы часто получают гораздо больше пространства, чем им «нужно». Даже в меню выхода есть много свободного горизонтального пространства внутри кнопок, но сам текст не занимает всю ширину. Концептуально, пока UI-система размещает контролы, родительский контрол (такой как BoxContainer) *назначает* или *выделяет* пространство своим дочерним контролам. Контролы затем сами выбирают, как занять это пространство. В случае меню выхода BoxContainer выделяет полную ширину контролу. Поведение по умолчанию для большинства контролов — *растягиваться*, чтобы заполнить это пространство. В результате кнопка «растягивается» на всю ширину меню.
+
+Это поведение управляется HorizontalAlignment и VerticalAlignment на контроле, которые, по сути, говорят: «что делать, если у нас больше места, чем нужно». По умолчанию для обоих стоит Stretch — «занять как можно больше места». Вы также можете использовать Center, который центрирует контрол, сохраняя его минимально возможный размер. А также Left/Top и Right/Bottom для выравнивания контрола по одной стороне. Давайте поэкспериментируем с HorizontalAlignment на разных элементах в меню выхода:
+
+HorizontalAlignment="Center" на каждой кнопке по отдельности:
+
+![escape-menu-shrink-example.png](/images/user-interface/escape-menu-center-example.png)
+
+<Accordion title="XAML-код (нажмите, чтобы развернуть)">
+`xml
+    <BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150">
+        <changelog:ChangelogButton  HorizontalAlignment="Center" />
+        <ui:VoteCallMenuButton HorizontalAlignment="Center" />
+        <Button HorizontalAlignment="Center" Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+        <Button HorizontalAlignment="Center" Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+        <Button HorizontalAlignment="Center" Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+    </BoxContainer>
+  `
+</Accordion>
+
+HorizontalAlignment="Left" на каждой кнопке по отдельности:
+
+![escape-menu-left-example.png](/images/user-interface/escape-menu-left-example.png)
+
+<Accordion title="XAML-код (нажмите, чтобы развернуть)">
+`xml
+    <BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150">
+        <changelog:ChangelogButton  HorizontalAlignment="Left" />
+        <ui:VoteCallMenuButton HorizontalAlignment="Left" />
+        <Button HorizontalAlignment="Left" Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+        <Button HorizontalAlignment="Left" Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+        <Button HorizontalAlignment="Left" Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+    </BoxContainer>
+  `
+</Accordion>
+
+HorizontalAlignment="Left" только на самом BoxContainer. Это означает, что мы изменяем сам BoxContainer, чтобы он сжался, принимая ширину самой большой кнопки. Все остальные кнопки по-прежнему расширяются, чтобы заполнить пространство BoxContainer, поэтому все они имеют одинаковый размер — размер самой большой кнопки:
+
+![escape-menu-box-left-example.png](/images/user-interface/escape-menu-box-left-example.png)
+
+<Accordion title="XAML-код (нажмите, чтобы развернуть)">
+<Info>
+Примечание: чтобы этот пример действительно работал, нам нужно перенести объявление MinSize на содержащий контрол. В обычном меню MinWidth BoxContainer полностью отвечает за ширину меню, поэтому в нём самом нет лишнего пространства. Оборачивание его в родительский контрол с MinSize исправляет это.
+</Info>
+
+  `xml
+    <Control MinWidth="150">
+        <BoxContainer Orientation="Vertical" HorizontalAlignment="Left" SeparationOverride="4">
+            <changelog:ChangelogButton  />
+            <ui:VoteCallMenuButton />
+            <Button Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+            <Button Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+            <Button Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+        </BoxContainer>
+    </Control>
+  `
+</Accordion>
+
+Есть и другие полезные свойства компоновки, которые можно использовать для влияния на расположение отдельного контрола:
+
+* MinSize/MinWidth/MinHeight: Позволяет установить собственный минимальный размер контрола, который используется поверх существующего размера, рассчитанного на основе дочерних элементов.
+* MaxSize/MaxWidth/MaxHeight: Позволяет ограничить размер контрола.
+* SetSize/SetWidth/SetHeight: Позволяет установить конкретный размер контрола.
+* Margin: Позволяет установить поле пустого пространства вокруг контрола.
+
+## Распространённые атрибуты
+Эти атрибуты присутствуют на большинстве контролов компоновки.
+### Margin
+Устанавливает поле контрола, на который помещён этот атрибут.
+Пример:
+`xml
+<BoxContainer Orientation="Vertical" Margin="4">
+        <Label Text="Fancy label 1" />
+        <Label Text="Fancy label 2" />
+    </BoxContainer>
+`
+Этот пример устанавливает равномерное поле 4. Вы также можете определить стороны по отдельности:
+- Margin="<uniform>"
+- Margin="<horizontal> <vertical>"
+- Margin="<left> <top> <right> <bottom>"
+
+### Horizontal/VerticalExpand
+
+У контролов есть два довольно запутанных свойства. Мы уже рассмотрели HorizontalAlignment и VerticalAlignment выше, но есть ещё одно похоже звучащее свойство: HorizontalExpand и VerticalExpand. Эти свойства очень странные. Честно говоря, если бы UI-система была более развитой, их бы здесь вообще не было. **Люди часто используют их, не понимая, что они на самом деле делают, так что читайте, умники.**
+
+Эти два свойства влияют на компоновку вашего контрола **только в нескольких определённых контейнерах**: BoxContainer, SplitContainer и GridContainer. Если ваш контрол не находится в одном из них и вы устанавливаете *Expand, ваш код автоматически неверен.
+
+Итак, что же именно они делают? Я буду использовать BoxContainer в качестве примера. Предположим, я редактирую меню выхода так, чтобы места было больше, чем нужно кнопкам:
+
+![escape-menu-expand-example-1.png](/images/user-interface/escape-menu-expand-example-1.png)
+
+<Accordion title="XAML-код (нажмите, чтобы развернуть)">
+<Info>
+О, смотрите, меню выхода выросло с тех пор, как я в последний раз редактировал это руководство!
+</Info>
+  
+  `xml
+    <BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150">
+        <changelog:ChangelogButton Access="Public" Name="ChangelogButton"/>
+        <ui:VoteCallMenuButton />
+        <Button Access="Public" Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+        <Button Access="Public" Name="RulesButton" Text="{Loc 'ui-escape-rules'}" />
+        <Button Access="Public" Name="GuidebookButton" Text="{Loc 'ui-escape-guidebook'}" />
+        <Button Access="Public" Name="WikiButton" Text="{Loc 'ui-escape-wiki'}" />
+        <Button Access="Public" Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+        <Button Access="Public" Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+    </BoxContainer>
+  `
+</Accordion>
+
+BoxContainer всегда даёт своим дочерним элементам ровно столько места, сколько необходимо, вдоль своей основной оси. Это означает, что неиспользуемое пространство не заполняется! В примере выше мы могли бы сделать окно шире по горизонтали, и кнопки стали бы шире. Но увеличение окна по вертикали просто добавляет пустое пространство.
+
+Здесь в игру вступает VerticalExpand. Если мы дадим контролу VerticalExpand="True", посмотрите, что произойдёт:
+
+![escape-menu-expand-example-2.png](/images/user-interface/escape-menu-expand-example-2.png)
+
+<Accordion title="XAML-код (нажмите, чтобы развернуть)">
+`xml
+    <BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150" MinHeight="300">
+        <changelog:ChangelogButton Access="Public" Name="ChangelogButton"/>
+        <ui:VoteCallMenuButton />
+        <Button Access="Public" Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+        <!-- Эй, может, это заставит людей читать серверные правила! -->
+        <Button Access="Public" Name="RulesButton" VerticalExpand="True" Text="{Loc 'ui-escape-rules'}" />
+        <Button Access="Public" Name="GuidebookButton" Text="{Loc 'ui-escape-guidebook'}" />
+        <Button Access="Public" Name="WikiButton" Text="{Loc 'ui-escape-wiki'}" />
+        <Button Access="Public" Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+        <Button Access="Public" Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+    </BoxContainer>
+  `
+</Accordion>
+
+Ага. Теперь мы используем это пространство! BoxContainer фактически отдаёт остальное пространство кнопке правил. Вот что делает Expand.
+
+Вы можете дать Expand нескольким контролам, и тогда расширение будет пропорционально их свойству SizeFlagsStretchRatio:
+
+![escape-menu-expand-example-3.png](/images/user-interface/escape-menu-expand-example-3.png)
+
+<Accordion title="XAML-код (нажмите, чтобы развернуть)">
+`xml
+    <BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150" MinHeight="300">
+        <changelog:ChangelogButton Access="Public" Name="ChangelogButton"/>
+        <ui:VoteCallMenuButton />
+        <Button Access="Public" Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+        <!-- Эй, может, это заставит людей читать серверные правила! -->
+        <Button Access="Public" Name="RulesButton" VerticalExpand="True" SizeFlagsStretchRatio="1.5" Text="{Loc 'ui-escape-rules'}" />
+        <Button Access="Public" Name="GuidebookButton" VerticalExpand="True" Text="{Loc 'ui-escape-guidebook'}" />
+        <Button Access="Public" Name="WikiButton" Text="{Loc 'ui-escape-wiki'}" />
+        <Button Access="Public" Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+        <Button Access="Public" Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+    </BoxContainer>
+  `
+</Accordion>
+
+Повторюсь: Horizontal/VerticalAlignment и подобные изменяют поведение контрола в пределах выделенного ему пространства. Horizontal/VerticalExpand изменяет то, как родительский контейнер решает, сколько пространства выделить в первую очередь. Только отдельные родительские контейнеры учитывают Horizontal/VerticalExpand.
+
+## XAML UI
+
+Сложные UI могут включать довольно много контролов. Раньше большинство UI создавались путём ручного конструирования этих глубоких деревьев контролов на C#. Это было отстойно. Теперь у нас есть Технология(тм), и благодаря XamlUI всё не так отстойно. Ура!
+
+XAML позволяет вам указывать деревья контролов в XML. Напоминание, если вы каким-то образом пропустили первую половину страницы, это выглядит примерно так:
+
+`xml
+<DefaultWindow xmlns="https://spacestation14.io"
+            xmlns:changelog="clr-namespace:Content.Client.Changelog"
+            xmlns:ui="clr-namespace:Content.Client.Voting.UI"
+            Title="{Loc 'ui-escape-title'}"
+            Resizable="False">
+
+    <BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150">
+        <changelog:ChangelogButton />
+        <ui:VoteCallMenuButton />
+        <Button Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+        <Button Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+        <Button Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+    </BoxContainer>
+</DefaultWindow>
+`
+
+### Синтаксис
+
+По своей сути XAML — это просто причудливый способ указывать объекты .NET в XML. Просто большинство XAML-фреймворков (как наш) оборачивают это в кучу вещей, чтобы сделать его особенно подходящим для UI. Это делает его одновременно относительно простым для маппинга на что угодно, но также не совсем лаконичным или приятным способом написания UI-кода в более сложных сценариях. Ну что ж.
+
+#### Основы XML
+
+Вы можете пропустить эту часть, если имеете самое базовое понимание того, что такое XML. Поскольку практически каждый программист сегодня знает HTML, а это почти то же самое, вы, вероятно, уже знаете. Но в любом случае, поехали:
+
+Ваш XML-документ состоит из множества **тегов**. Пример тега:
+
+`xml
+<Foo />
+`
+
+Комментарии выглядят так:
+`xml
+<!-- Это комментарий! -->
+`
+
+Обратите внимание на забавные угловые скобки, обозначающие части тега, и забавный слеш в конце (мы вернёмся к этому позже).
+
+XML-теги могут иметь **атрибуты**. Это дополнительные свойства, добавляемые к тегам. Пример:
+
+`xml
+<Foo Bar="Baz" A="B" />
+`
+
+XML-теги могут содержать что-то (в нашем случае: другие теги). Это подводит нас к различию между «открытыми» и «закрытыми» тегами. До сих пор я показывал только закрытые теги (заканчивающиеся на />), которые не могут содержать содержимое. Вы также можете сделать открытый тег следующим образом:
+`xml
+<Foo> </Foo>
+`
+
+Если вы знакомы с HTML, в XML любой тег может быть как открытым, так и закрытым. Также XML не допускает различные граничные случаи парсера на основе имени тега (<br>, <p>, ...), всё гораздо более консистентно.
+
+Содержимое тега находится между двумя частями. Содержимым могут быть другие теги или просто обычный текст (но обычный текст в настоящее время не используется в нашем движке):
+
+`xml
+<Foo>
+  <Bar />
+  <Baz><Foo A="B" /></Baz>
+</Foo>
+<!-- Вы поняли идею -->
+`
+
+#### Пространства имён
+
+Поскольку XAML маппится на фактические типы .NET (в основном), вам нужно импортировать пространства имён, чтобы он мог разрешать типы. Это делается путём размещения атрибута xmlns на верхнем теге документа. xmlns="..." — это пространство имён, используемое по умолчанию (например, <Button>), тогда как xmlns:foo="..." позволяет импортировать дополнительные пространства имён, которые можно импортировать, добавляя префикс oo: к имени тега, например: <foo:Button>. Эти пространства имён задаются не простыми именами C# namespace, это довольно сложно и включает URI и прочее. Просто оставьте xmlns="https://spacestation14.io" для пространства имён движка, а остальное импортируйте копипастом и базовым распознаванием образов, я полагаю. Вот несколько примеров, которые я взял из случайного XAML-файла:
+
+`xml
+<Control xmlns="https://spacestation14.io"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:gfx="clr-namespace:Robust.Client.Graphics;assembly=Robust.Client"
+         xmlns:parallax="clr-namespace:Content.Client.Parallax"
+         xmlns:style="clr-namespace:Content.Client.Stylesheets">
+`
+
+#### Основной синтаксис
+
+Каждый XML-тег представляет один объект. То есть <Button /> создаёт пустой, простой Robust.Client.UserInterface.Controls.Button так же, как вы бы сделали 
+ew Button(). Вы можете задавать свойства создаваемых объектов с помощью атрибутов тега, например:
+
+`xml
+<Button Text="Click me!" Margin="4" />
+`
+
+Вы можете заставить контролы содержать другие контролы ([помните, это дерево!](#the-control)), помещая их внутрь друг друга, например:
+
+`xml
+<BoxContainer Orientation="Vertical" SeparationOverride="4" MinWidth="150">
+  <changelog:ChangelogButton />
+  <ui:VoteCallMenuButton />
+  <Button Name="OptionsButton" Text="{Loc 'ui-escape-options'}" />
+  <Button Name="DisconnectButton" Text="{Loc 'ui-escape-disconnect'}" />
+  <Button Name="QuitButton" Text="{Loc 'ui-escape-quit'}" />
+</BoxContainer>
+`
+
+Содержимое атрибутов автоматически преобразуется в тип свойства. Для простых вещей вроде чисел, строк, enum и т.д. это очевидно. Для таких типов, как Vector2 и Thickness (используется для полей), это числа, разделённые пробелами.
+
+Вы также могли заметить забавную штуку {Loc 'ui-...'}. Это называется **markup extension**. Если кратко, это магия, которую можно помещать в свойства для выполнения специальных действий. В данном случае {Loc 'key'} ищет [локализованную строку](../ss14-by-example/fluent-and-localization).
+
+### Использование
+
+Чтобы *использовать* XAML для нового контрола, вам нужно создать файл с именем FooControl.xaml, а затем поместить соответствующий код C# в FooControl.xaml.cs. Как минимум, всё, что нужно сделать, это вызвать RobustXamlLoader.Load(this); где-нибудь в конструкторе объекта. Если вы хотите поддержку code-behind (свойства Name на объявленных контролах), вам нужно сделать C#-класс partial и добавить к нему атрибут [GenerateTypedNameReferences]. Полный пример выглядит так:
+
+`xml
+<!-- FooControl.xaml -->
+<Control xmlns="https://spacestation14.io">
+  	<Button Name="PressButton" Text="Click me!" />
+</Control>
+`
+
+`cs
+// FooControl.xaml.cs
+[GenerateTypedNameReferences]
+public partial class FooControl : Control
+{
+    public FooControl()
+    {
+    		RobustXamlLoader.Load(this);
+        PressButton.OnPressed += _ => Logger.Debug("Foo");
+    }
+}
+`
+
+<Info>
+Иногда свойства code-behind (PressButton в примере выше) могут не генерироваться вашей IDE. На момент написания прошёл год, а source generators всё ещё очень глючные, ура. Обычно перезагрузка проекта или сборка, вероятно, исправят это.
+
+Rider 2022.1 EAP3, кажется, наконец-то исправил многие из этих проблем. Убедитесь, что вы обновлены.
+</Info>
+
+XAML-код автоматически компилируется в IL, чтобы его можно было эффективно конструировать во время выполнения. Связь между XAML-файлом и C#-классом устанавливается по расположению и имени. Если нужно, вы можете указать класс для использования напрямую в XAML с помощью объявления x:Class:
+
+`xml
+<Control xmlns="https://spacestation14.io"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         x:Class="Content.Client.UserInterface.FooControl">
+		<!-- UI код -->
+</Control>
+`
+
+## UI Controllers
+
+UI Controller'ы отвечают за создание, обновление и удаление контролов. Entity systems не должны делать этого самостоятельно.
+Любые данные, которые они используют, должны быть получены путём привязки их методов к системным событиям (см. пример ниже) или вызовом методов IoC-сервисов, таких как IPlayerManager.
+Чтобы создать новый UI controller, сделайте новый класс, наследующий UIController. Этот тип будет автоматически создан как singleton через UserInterfaceManager.
+Widget'ы получаются внутри UI controller'ов вызовом UIManager.GetActiveUIWidgetOrNull<T>(), где T — это widget, такой как ActionsBar.
+Жизненный цикл UI controller'а длиннее, чем у Entity System; UI controller может существовать до загрузки Entity System и оставаться активным после их выгрузки.
+
+### Зависимости
+
+UI controller может иметь зависимости от других IoC-сервисов и controller'ов, используя синтаксис $.
+Для систем необходимо использовать $.
+После загрузки систем методы UI controller'а могут быть привязаны к событиям, объявленным в них.
+
+`cs
+public sealed class ActionUIController : UIController, IOnSystemChanged<ActionsSystem>, IOnStateEntered<GameplayState>
+{
+    // Dependency используется для IoC-сервисов и других controller'ов
+    [Dependency] private readonly GameplayStateLoadController _gameplayStateLoad = default!;
+
+    // Для Entity System используется UISystemDependency
+    [UISystemDependency] private readonly ActionsSystem? _actions = default!;
+
+    private ActionsWindow? _window;
+
+    public override void Initialize()
+    {
+        base.Initialize();
+
+        // Мы можем привязывать методы к полям событий на других UI controller'ах во время Initialize
+        _gameplayStateLoad.OnScreenLoad += LoadGui;
+        _gameplayStateLoad.OnScreenUnload += UnloadGui;
+
+        // UI controller'ы также могут подписываться на локальные и сетевые события сущностей
+        // Локальные события — это события, вызываемые на клиенте с помощью RaiseLocalEvent
+        // SubscribeLocalEvent<PlayerAttachedEvent>(ev => {});
+
+        // Сетевые события — это события, вызываемые сервером и отправляемые клиенту
+        // SubscribeNetworkEvent<PlayerAttachedEvent>(ev => {});
+    }
+
+    private void LoadGui()
+    {
+        DebugTools.Assert(_window == null);
+        _window = UIManager.CreateWindow<ActionsWindow>();
+        LayoutContainer.SetAnchorPreset(_window, LayoutContainer.LayoutPreset.CenterTop);
+    }
+
+    private void UnloadGui()
+    {
+        if (_window != null)
+        {
+            _window.Dispose();
+            _window = null;
+        }
+    }
+
+    private void ToggleWindow()
+    {
+        if (_window == null)
+            return;
+
+        if (_window.IsOpen)
+        {
+            _window.Close();
+            return;
+        }
+
+        _window.Open();
+    }
+
+    public void OnSystemLoaded(ActionsSystem system)
+    {
+        // Мы можем привязываться к полям событий Entity System, когда эта система загружена
+        system.LinkActions += OnComponentLinked;
+    }
+
+    public void OnSystemUnloaded(ActionsSystem system)
+    {
+        // И отвязываться, когда система выгружается
+        system.LinkActions -= OnComponentLinked;
+    }
+
+    // Будет вызвано, когда ActionsSystem вызовет событие на своём поле LinkActions
+    private void OnComponentLinked(ActionsComponent component)
+    {
+    }
+
+    public void OnStateEntered(GameplayState state)
+    {
+        // Привязываем хоткеи при входе в состояние игры (начало раунда и присоединение к нему в качестве клиента)
+        CommandBinds.Builder
+            .Bind(ContentKeyFunctions.OpenActionsMenu, InputCmdHandler.FromDelegate(_ => ToggleWindow()))
+            .Register<ActionUIController>();
+    }
+
+    public void OnStateExited(GameplayState state)
+    {
+        // Отвязываем хоткеи после выхода из раунда (вход в лобби или отключение)
+        CommandBinds.Unregister<ActionUIController>();
+    }
+}
+`
+
+UI controller'ы также могут реализовывать следующие интерфейсы:
+### IOnStateChanged&lt;T&gt;
+Реализует два метода: OnStateEntered(T state) и OnStateExited(T state).
+Эти методы автоматически вызываются при входе и выходе из соответствующего состояния, например GameplayState.
+Если нужна только логика входа или выхода, можно реализовать IOnStateEntered<T> и IOnStateExited<T> соответственно.
+
+### IOnSystemChanged&lt;T&gt;
+Реализует два метода: OnSystemLoaded(T system) и OnSystemUnloaded(T system).
+Эти методы автоматически вызываются при загрузке и выгрузке соответствующей системы, например ActionsSystem.
+Если нужна только логика загрузки или выгрузки, можно реализовать IOnSystemLoaded<T> и IOnStateUnloaded<T> соответственно.

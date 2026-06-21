@@ -1,0 +1,208 @@
+﻿---
+title: "Шейдеры"
+---
+
+[Шейдеры](https://en.wikipedia.org/wiki/Shader) — это программы, используемые для реализации графических эффектов, выполняющиеся на [GPU](https://en.wikipedia.org/wiki/Graphics_processing_unit). SS14 использует [пиксельные (fragment) шейдеры](https://en.wikipedia.org/wiki/Shader#Pixel_shaders) для реализации попиксельных эффектов, включая стелс; и эффектов наложения, включая космические наркотики, опьянение, слепоту и искривление пространства сингулярности.
+
+# Определение шейдера
+
+Каждый шейдер имеет YAML-прототип, хранящийся в Resources/Prototypes/Shaders. Все шейдеры имеют поля:
+
+- 	ype: должно быть shader
+- id: уникальный ID прототипа (строка), идентифицирующий этот шейдер
+- kind: canvas или source (см. ниже)
+
+## Шейдеры canvas
+
+Это шейдер с предустановленными опциями, похожий на Godot CanvasItemMaterial. Имеет два обязательных свойства:
+
+* lend_mode: Способ отрисовки объекта поверх сцены. Аналогичен [эквиваленту в Godot](https://godot.readthedocs.io/en/3.0/classes/class_canvasitemmaterial.html), за исключением небольших отличий в именовании. Возможные значения: mix, dd, subtract, multiply и premultiplied_alpha
+* light_mode: Способ взаимодействия объекта со светом. Также эквивалентен Godot, со значениями 
+ormal, unshaded и light_only.
+
+Например, шейдер unshaded, используемый для отрисовки освещённой части дисплеев компьютеров и индикаторов путём маскирования операций освещения, определяется так:
+
+`yml
+- type: shader
+  id: unshaded
+  kind: canvas
+  light_mode: unshaded
+`
+
+Canvas шейдер — это, по сути, стандартный исходный шейдер (см. /Shaders/Internal/default-sprite.swsl) с применёнными опциями освещения, смешивания и трафарета.
+
+## Шейдеры source
+
+Это custom-шейдеры, написанные на Space Wizard Shader Language (SWSL). Шейдеры source имеют одно обязательное свойство:
+
+- path: Путь относительно директории Resources/ к файлу исходного кода шейдера SWSL.
+
+Например:
+
+`yml
+- type: shader
+  id: GreyscaleFullscreen
+  kind: source
+  path: "/Textures/Shaders/greyscale_fullscreen.swsl"
+`
+
+Custom-шейдеры обычно хранятся в файлах .swsl в Resources/Textures/Shaders.
+
+## SWSL
+
+Space Wizard Shader Language (SWSL) основан на [языке шейдеров Godot](https://godot.readthedocs.io/en/3.0/tutorials/shading/shading_language.html). Большинство различий в совместимости между Godot и SWSL обрабатываются автоматически, за исключением следующих:
+
+- Вы ОБЯЗАНЫ убедиться, что все числовые типы (например, loat, ec3) имеют квалификатор точности highp или lowp. См. [эту статью о причинах](https://stackoverflow.com/questions/28540290/why-it-is-necessary-to-set-precision-for-the-fragment-shader).
+
+- Избегайте использования имён переменных, которые являются зарезервированными словами в распространённых спецификациях шейдеров. Ваш компьютер может их игнорировать, но они сломаются на других машинах. [Проверьте раздел keywords (3.8) здесь](https://registry.khronos.org/OpenGL/specs/es/3.0/GLSL_ES_Specification_3.00.pdf)
+
+Поскольку это 2D-игра, используется только fragment shader, то есть шейдер состоит, как минимум, из:
+
+`glsl
+void fragment() {
+    COLOR = vec4(r, g, b, a);
+}
+`
+
+### Доступные переменные (Fragment Shaders)
+
+| Name                | Type          | Description                            |
+|---------------------|---------------|--------------------------------------|
+| FRAGCOORD         | highp vec4  | Координаты внутри фрагмента. |
+| COLOR             | lowp vec4   | Результирующий цвет пикселя. _(Можно считать возвращаемым значением fragment shader'а.)_ |
+| lightMap          | sampler2D   | Карта освещения текущего фрагмента (применяется автоматически ase-default.frag)|
+| modulate          | highp vec4  | Цвет отрисовки (применяется автоматически ase-default.frag)|
+| SCREEN_PIXEL_SIZE | highp vec2  | Размер одного пикселя в локальных единицах.|
+| TIME              | highp float | Количество секунд с момента запуска игры.|
+{/*
+| projectionMatrix  | highp mat3  | **TODO**                             |
+| iewMatrix        | highp mat3  | **TODO**                             |
+| UV                | highp vec2  | **TODO**                             |
+| Pos               | highp vec2  | **TODO**                             |
+| TEXTURE           | sampler2D   | **TODO**                             |
+*/}
+
+## Параметры трафаретного теста
+
+Шейдеры поддерживают операции с трафаретом. Это продвинутая функция рендеринга, которая может быть полезна для некоторых вещей, если вы знаете, что делаете. Функциональность тесно имитирует параметры трафарета, предоставляемые OpenGL (и, насколько я могу судить, Vulkan тоже). См. [The OpenGL wiki](https://www.khronos.org/opengl/wiki/Stencil_Test) для справки.
+
+Параметры трафарета определяются в отдельном объекте stencil. Например:
+
+`yml
+- type: shader
+  id: stencilDraw
+  kind: canvas
+  stencil:
+    ref: 1
+    op: Keep
+    func: NotEqual
+`
+
+Параметры трафарета не зависят от kind шейдера.
+
+Доступные опции:
+
+* ef: Ссылочное значение для сравнения/записи, передаваемое как второй параметр glStencilFunc.
+  * По умолчанию 0.
+* op: Операция, применяемая к буферу трафарета, если тест пройден. Можно установить только op при прохождении (третий параметр glStencilOp).
+  * Варианты: Keep, Zero, Replace, IncrementClamp, IncrementWrap, DecrementClamp, DecrementWrap, Invert
+  * По умолчанию: Keep.
+* unc: Функция сравнения для определения прохождения теста (первый параметр glStencilFunc).
+  * Варианты: Always, Never, Less, LessOrEqual, Greater, GreaterOrEqual, NotEqual, Equal.
+  * По умолчанию: Always.
+* eadMask: Маска для чтения из буфера трафарета (третий параметр glStencilFunc).
+  * По умолчанию все единицы.
+* writeMask: Маска для записи в буфер трафарета (параметр glStencilMask).
+  * По умолчанию все единицы.
+
+# Overlays
+
+Overlay применяет шейдер ко всему экрану или окну просмотра (в отличие от отдельных спрайтов). Эффекты наркотиков, слепоты и искривления пространства сингулярности — примеры overlay'ев (написанных на C#), которые загружают прототипы шейдеров (определённые в YAML), которые могут загружать custom-шейдерные эффекты (написанные на SWSL).
+
+Overlay'и расширяют Overlay, например:
+
+`csharp
+    public sealed class BlindOverlay : Overlay
+    {
+        [Dependency] private readonly IPrototypeManager _prototypeManager = default!;
+
+        // Установите true, чтобы получить ScreenTexture. В противном случае он будет null.
+        public override bool RequestScreenTexture => true;
+        
+        // Должен быть установлен соответствующий слой overlay.
+        public override OverlaySpace Space => OverlaySpace.WorldSpace;
+        
+        // Храним ссылки на шейдеры.
+        private readonly ShaderInstance _greyscaleShader;
+        private readonly ShaderInstance _circleMaskShader;
+
+        public BlindOverlay()
+        {
+            IoCManager.InjectDependencies(this);
+            // Загружаем шейдеры из прототипов
+            _greyscaleShader = _prototypeManager.Index<ShaderPrototype>("GreyscaleFullscreen").InstanceUnique();
+            _circleMaskShader = _prototypeManager.Index<ShaderPrototype>("CircleMask").InstanceUnique();
+        }
+        
+        protected override bool BeforeDraw(in OverlayDrawArgs args)
+        {
+            // Если возвращает true, этот шейдер будет отрисован. Если этот
+            // метод не переопределён, по умолчанию возвращается true,
+            // т.е. шейдер всегда активен для всех.
+        }
+        
+        protected override void Draw(in OverlayDrawArgs args)
+        {
+            // Если вашему шейдеру нужны входные данные (пиксели, currently на экране),
+            // вы должны проверить, что они не null, и передать их в шейдер.
+            if (ScreenTexture == null)
+                return;
+                
+            _greyscaleShader?.SetParameter("SCREEN_TEXTURE", ScreenTexture);
+            
+            var handle = args.WorldHandle;
+            var viewport = args.WorldBounds;
+            // Рисуем шейдер оттенков серого
+            handle.UseShader(_greyscaleShader);
+            handle.DrawRect(viewport, Color.White);
+            // Рисуем шейдер круговой маски
+            handle.UseShader(_circleMaskShader);
+            handle.DrawRect(viewport, Color.White);
+            // Прекращаем использование шейдера
+            handle.UseShader(null);
+        }
+    }
+`
+
+Шейдеру нужна область для рисования. Здесь это белый прямоугольник, равный **WorldBounds.** Обратите внимание, что **WorldAABB** не учитывает поворот и, вероятно, сломает многие шейдеры.
+
+Наконец, чтобы overlay'и действительно отрисовывались, их нужно добавить в менеджер overlay'ев:
+
+`csharp
+[Dependency] private readonly IOverlayManager _overlayMan = default!;
+_overlayMan.AddOverlay(your_overlay_here);
+_overlayMan.RemoveOverlay(your_overlay_here);
+`
+
+Если этот overlay должен быть всегда активен, добавьте его в PostInit() в Content.Client/Entry/EntryPoint.cs.
+
+# Тестирование и отладка
+
+<Warning>
+Тестируйте свои шейдеры **как с режимом совместимости, так и без него**. Вы можете включить режим совместимости, запустив клиент с аргументом --cvar display.compat=true.
+</Warning>
+
+<Info>
+Вы можете использовать команду /rldshader для перезагрузки шейдеров .swsl без перезапуска игры. Это означает, что вы часто можете использовать цветовые выводы для интерактивной отладки шейдеров.
+</Info>
+
+В отличие от программ, написанных на C#, шейдеры компилируются вашим графическим драйвером во *время выполнения*, что означает, что даже простые синтаксические ошибки в шейдерах **проявятся только при запуске клиента**.
+
+Поэтому важно тестировать шейдер, запуская клиент. Синтаксические ошибки шейдеров будут отображаться как исключения (вам нужно будет поискать сообщение об ошибке) при загрузке прототипов шейдеров.
+
+Для некоторых классов ошибок клиент сбросит файл error.glsl с пост-обработанным шейдером, который не удалось загрузить. Обычно журнал компиляции шейдера также отображается и идентифицирует проблему, но вы также можете передать файл .glsl такому инструменту, как
+
+[glslang](https://github.com/KhronosGroup/glslang).
+
+## Внешние инструменты
+* [renderdoc](https://renderdoc.org/) — Отличный инструмент для отладки рендеринга и шейдеров.

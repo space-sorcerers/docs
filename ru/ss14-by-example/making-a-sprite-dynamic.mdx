@@ -1,0 +1,151 @@
+---
+title: "Делаем спрайт динамическим"
+---
+
+Большинство примеров здесь будут сосредоточены на **шкафах для предметов**, таких как огнетушители и отсеки для пожарных топоров. Они очень просты, но достаточно сложны, чтобы требовать собственного визуализатора и понимания слоёв спрайтов. Соответствующие классы здесь: `ItemCabinetComponent`, `ItemCabinetSystem` (клиентская и серверная версии), `ItemCabinetVisuals` (shared) и `ItemCabinetVisualsComponent`.
+
+Давайте зададим вопрос: какой самый эффективный способ обновить спрайт entity? Если бы сервер отправлял всё состояние `SpriteComponent` (компонент, используемый для рендеринга entity), это было бы слишком много для отправки каждому клиенту! Не говоря уже о том, что это не дело сервера — беспокоиться о том, как entity рендерятся. Что, если бы сервер просто отправлял базовые 'данные внешнего вида' (appearance data) для entity (открыто ли оно, заперто ли, под напряжением ли, какого цвета его растворы и т.д.), а задачей клиента было бы восстановить, как это должно выглядеть?
+
+Как мы этого добиваемся? С помощью `AppearanceComponent` и `VisualizerSystem`, конечно!
+
+## Appearance Data
+
+В SS14 всё, что сложнее одного неизменного спрайта, рендерится динамически с использованием данных внешнего вида. `Visualizers`, или `VisualizerSystem` — это исключительно клиентские `EntitySystem`, которые обновляют спрайт entity, используя данные внешнего вида. Системы визуализаторов обычно имеют соответствующий клиентский компонент, который хранит некоторые настраиваемые параметры. Например, клиентские `ItemCabinetSystem` и `ItemCabinetVisualsComponent`.
+
+Почему мы это делаем? Это уже упоминалось ранее, но несколько причин:
+
+- Гораздо меньше пропускной способности требуется для отправки нескольких простых целых чисел или строк клиенту, чем для отправки целого состояния слоя спрайта.
+- Это перекладывает некоторую важную работу на клиент, где это возможно, что всегда приятно.
+- Это отделяет визуализацию entity от кода, который с ней работает.
+- Это позволяет нам в будущем реализовать нормальные внутриигровые фотографии или повторы. Причины этого немного сложны, и мне лень, так что я напишу об этом позже.
+
+Данные отправляются и принимаются с использованием `AppearanceComponent`, в частности функций `TryGetData` (на клиенте) и `SetData` (на сервере). Данные хранятся как `Dictionary<object, object>`, что означает, что в качестве ключа и значения можно использовать (в основном) что угодно. На практике ключ всегда должен быть enum, чтобы обеспечить проверку типов, которая недоступна для строк, избежать коллизий ключей и сделать происходящее очевидным. На самом деле, `TryGetData` и `SetData` поддерживают только enum и строки в качестве ключа.
+
+### Пример
+
+Вот очень простая установка данных внешнего вида на сервере в `ItemCabinetSystem`:
+
+```csharp
+        private void UpdateAppearance(Entity<ItemCabinetComponent?, AppearanceComponent?> ent)
+        {
+            if (!Resolve(ent, ref ent.Comp1, ref ref ent.Comp2, logMissing: false))
+                return;
+
+            _appearanceSystem.SetData(ent, ItemCabinetVisuals.IsOpen, ent.Comp1.Opened, ent.Comp2);
+            _appearanceSystem.SetData(ent, ItemCabinetVisuals.ContainsItem, ent.Comp1.CabinetSlot.HasItem, ent.Comp2);
+        }
+```
+
+Ключи — это значения enum из `ItemCabinetVisuals`, чтобы было очевидно, для чего они используются, и данные в обоих случаях — bool. `AppearanceComponent` и `AppearanceSystem` обрабатывают репликацию этих данных клиенту автоматически!
+
+---
+
+Любая клиентская entity system может быть `VisualizerSystem`.
+
+Давайте посмотрим на клиентский `ItemCabinetSystem`, чтобы увидеть, как он получает и использует данные внешнего вида:
+
+```csharp
+public sealed class ItemCabinetSystem : VisualizerSystem<ItemCabinetVisualsComponent>
+{
+    protected override void OnAppearanceChange(Entity<ItemCabinetVisualsComponent> ent, ref AppearanceChangeEvent args)
+    {
+        if (TryComp(ent, out SpriteComponent? sprite)
+            && args.Component.TryGetData(ItemCabinetVisuals.IsOpen, out bool isOpen)
+            && args.Component.TryGetData(ItemCabinetVisuals.ContainsItem, out bool contains))
+        {
+            var state = isOpen ? component.OpenState : component.ClosedState;
+            sprite.LayerSetState(ItemCabinetVisualLayers.Door, state);
+            sprite.LayerSetVisible(ItemCabinetVisualLayers.ContainsItem, contains);
+        }
+    }
+}
+```
+
+Во-первых, системы визуализаторов определяются как наследники класса `VisualizerSystem<T>`, где T — соответствующий компонент, содержащий данные для визуалов. Это не строго обязательно — вы можете сделать всё это и с обычной entity system, — но это удобно.
+
+Визуализатор переопределяет `OnAppearanceChange`, метод, специфичный для систем визуализаторов, который вызывается, когда данные внешнего вида изменяются на клиенте, и пытается получить компонент спрайта, чтобы изменить его, используя новые данные.
+
+Затем он использует `TryGetData` для получения вышеупомянутых визуалов шкафа для предметов. Затем он использует эти данные для изменения спрайта шкафа. Просто и элегантно!
+
+Хотя эти функции спрайтов могут сначала сбивать с толку.
+
+### Дополнение: Generic Visualizers
+
+Вместо добавления множества отдельных систем и компонентов визуализаторов часто можно сделать визуализатор более общим, добавив дополнительное YAML-поле данных. Для этого существует `GenericVisualizerSystem` и компонент, который заменяет старый `GenericEnumVisualizer`. Если всё, что вам нужно от визуализатора, — это установить некоторые данные слоя спрайта на основе простых записей данных внешнего вида, вы, скорее всего, можете и должны использовать generic visualizer вместо создания собственного. Однако если вам нужно делать что-то необычное, например, использовать анимации или более сложную логику, вам всё равно придётся создавать свой собственный.
+
+Например, функциональность вышеуказанного визуализатора шкафа просто устанавливает состояния и видимость слоя спрайта на основе двух записей данных внешнего вида. Вместо этой системы и компонента та же функциональность может быть достигнута с использованием generic visualizer:
+```yaml
+     - type: Appearance
+     - type: GenericVisualizer
+       visuals:
+         enum.ItemCabinetVisuals.IsOpen: # <- Appearance data key. Either an enum or a general string.
+           enum.ItemCabinetVisualLayers.Door: # <- sprite layer key. Either an enum or a general string.
+            True: # <- Appearance data value
+              state: open # <- Sprite layer data that should be used for this appearance value
+            False: { state: closed } # <- You can also inline yaml, which can reduce indentation and improve readability.
+         # and then again for the other appearance entry:
+         enum.ItemCabinetVisuals.ContainsItem:
+           enum.ItemCabinetVisualLayers.ContainsItem:
+             True: { visible: true}
+             False: { visible: false}
+```
+Данные слоя спрайта могут устанавливать `sprite`, `state`, `texture`, `shader`, `scale`, `rotation`, `offset`, `visible` и `color`.
+Обратите внимание, что YAML для значений внешнего вида — это просто результаты `ToString()` значений данных внешнего вида.
+Таким образом, `bool` становятся "True"/"False", а enum, такой как `VentPumpState.Off`, просто становится "Off".
+
+## Спрайты, Слои и Состояния
+
+Entity в Robust требуют `SpriteComponent`, если они хотят иметь визуальное отображение. Компоненты спрайтов могут быть изменены на стороне клиента многими способами, как показано выше, например, установкой видимости, цвета (да, динамически!) или смещения.
+
+Спрайты могут быть просто одним `state` (изображением), но это скучно. Многие спрайты в SS14 нуждаются в слоях или хотят их, чтобы представлять более сложные спрайты без потери места. Рекомендуется использовать слои даже для спрайтов с одним изображением, чтобы упростить их расширение в будущем. Любые операции со спрайтами также могут выполняться на отдельных слоях.
+
+### Пример
+
+У дверей есть несколько различных наложений:
+
+![door-overlays.png](/images/ss14-by-example/door-overlays.png)
+
+Если бы вы не использовали слои, вам понадобился бы спрайт для двери без ничего, спрайт для отпертой двери, спрайт для запертой двери, спрайт для запертой и заваренной двери... Все отдельные. Очевидно, что это чертовски глупо, поэтому мы просто представляем каждое наложение отдельным изображением.
+
+![door-layers.png](/images/ss14-by-example/door-layers.png)
+
+(примечание: упрощено; это не все спрайты в этом RSI)
+
+---
+
+Вот как выглядит базовый компонент спрайта шлюза:
+
+```yaml
+  - type: Sprite
+    sprite: Structures/Doors/Airlocks/Standard/basic.rsi
+    layers:
+    - state: closed
+      map: ["enum.DoorVisualLayers.Base"]
+    - state: closed_unlit
+      shader: unshaded
+      map: ["enum.DoorVisualLayers.BaseUnlit"]
+    - state: welded
+      map: ["enum.DoorVisualLayers.BaseWelded"]
+    - state: bolted_unlit
+      shader: unshaded
+      map: ["enum.DoorVisualLayers.BaseBolted"]
+    - state: emergency_unlit
+      map: ["enum.DoorVisualLayers.BaseEmergencyAccess"]
+      shader: unshaded
+    - state: panel_open
+      map: ["enum.WiresVisualLayers.MaintenancePanel"]
+```
+
+Поле `netsync` — это bool, определяющий, будут ли операции на стороне сервера изменять спрайт для каждого клиента. Если вы правильно написали свой визуализатор (или он вам вообще не нужен), это должно быть `false`!
+
+Поле `sprite` в компоненте спрайта определяет, из какого RSI брать состояния.
+
+Поле `layers` — это последовательность, содержащая данные для каждого слоя спрайта. Оно определяет состояние, а также кое-что ещё.
+
+В Robust слои спрайтов могут быть 'shaded' или 'unshaded'. 'Shaded' означает, что на них влияет освещение, и они могут кардинально меняться в зависимости от освещения вокруг. 'Unshaded' просто означает, что на них не влияет освещение или отбрасываемые тени, поэтому они отображаются поверх теней — создавая иллюзию, что они излучают собственный свет. Однако они всё ещё отображаются ниже поля зрения (FoV).
+
+Слои могут быть сопоставлены с ключами enum. Это означает, что любые операции со спрайтами (установка видимости, цвета, состояния и т.д.) могут выполняться с этим enum в качестве ключа, а не с номером слоя (целым числом). Вы заметите, что именно это и делала упомянутая ранее система шкафа для предметов, используя свои `ItemCabinetVisualLayers`.
+
+## Анимации
+
+TODO

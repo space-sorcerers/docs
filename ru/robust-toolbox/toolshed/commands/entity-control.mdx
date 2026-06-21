@@ -1,0 +1,241 @@
+---
+title: "Команды для сущностей"
+---
+
+## Sources
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>entities</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> IEnumerable<EntityUid>`
+</div>
+</div>
+Возвращает список всех сущностей в симуляции.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>ent &lt;entity&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`[none] -> EntityUid`
+</div>
+</div>
+Возвращает указанную сущность.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>spawn:at &lt;entity prototype&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityCoordinates> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Создаёт новую сущность по указанным координатам.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>spawn:on &lt;entity prototype&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Создаёт новую сущность на другой указанной сущности.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>spawn:attached &lt;entity prototype&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Создаёт новую сущность, прикреплённую к другой указанной сущности.
+
+## Filters
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>with &lt;component type&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Фильтрует входные данные, оставляя сущности с указанным компонентом.
+Эту команду можно инвертировать с помощью `not`.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>prototyped &lt;prototype&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Фильтрует входные данные, оставляя сущности, созданные из указанного прототипа.
+Эту команду можно инвертировать с помощью `not`.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>paused</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Фильтрует входные данные, оставляя сущности, которые в данный момент приостановлены.
+Эту команду можно инвертировать с помощью `not`.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>nearby &lt;range&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Фильтрует сущности, находящиеся рядом с входными, возвращая все сущности в пределах радиуса от них.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>named &lt;name&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<EntityUid> -> IEnumerable<EntityUid>`
+</div>
+</div>
+Фильтрует входные данные, оставляя сущности с именем, соответствующим regex `$regex^`.
+
+## Transforms
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>comp:has &lt;component type&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<bool>`
+</div>
+</div>
+Возвращает true, если входная сущность имеет указанный компонент, иначе false.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>pos</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityCoordinates>`
+</div>
+</div>
+Возвращает координаты входных сущностей относительно их родителя.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>mappos</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityCoordinates>`
+</div>
+</div>
+Возвращает координаты входных сущностей относительно карты.
+
+## Mutators
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>delete</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<EntityUid> -> [none]`
+</div>
+</div>
+Удаляет входные сущности из симуляции. Исчезли. Пуф.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>replace &lt;entity prototype&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Заменяет указанные сущности на другие указанного прототипа, сохраняя только их позицию и поворот.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>tp:coords &lt;entity coordinates&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Телепортирует входные сущности по указанным координатам.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>tp:to &lt;entity&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Телепортирует входные сущности к указанной сущности.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>tp:into &lt;entity&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Телепортирует входные сущности внутрь указанной сущности.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>comp:add &lt;component type&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Добавляет указанный компонент сущности.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>comp:ensure &lt;component type&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Гарантирует наличие указанного компонента у входной сущности.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>comp:rm &lt;component type&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable?<EntityUid> -> IEnumerable?<EntityUid>`
+</div>
+</div>
+Удаляет указанный компонент из сущности.

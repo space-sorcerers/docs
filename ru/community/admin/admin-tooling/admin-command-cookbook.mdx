@@ -1,0 +1,72 @@
+---
+title: "Книга рецептов администратора"
+---
+
+## Удаление PA и генератора сингулярности
+```
+    entities named "PA .*" do delete $ID
+    deleteewi SingularityGenerator
+```
+## Постоянное добавление питания станции
+`Admin menu -> objects -> select grids in dropdown -> right click the station -> tricks -> click the battery with the ∞`
+## Снятие проклятия со всех шкафчиков
+`entities with CursedEntityStorage do rmcomp $ID CursedEntityStorage; addcomp $ID EntityStorage`
+## Удаление всех ghost roles
+`entities with GhostTakeoverAvailable do rmcomp $ID GhostTakeoverAvailable; rmcomp $ID Mind`
+## Очистка разбросанных частей тела
+`entities with MapGrid children with BodyPart do delete $ID`
+## Обезвреживание запасов калия станции
+`entities hasreagent Potassium do delete $ID`
+## Удаление всех изолированных перчаток определённого персонажа
+`entities with Mind named "NAME GOES HERE" rchildren named "insulated gloves" do delete $ID`
+
+# Ghost Roles
+## Разумные торговые автоматы
+`entities with Advertise do makeghostrole $ID "$NAME" "You're a vending machine, use your speaker to annoy people."; rmcomp $ID Advertise`
+## Разумное мыло
+`entities with Slippery prototyped SoapOmega do makeghostrole $ID "$NAME" "You're a bar of soap. Slip absolutely everyone."; addcomp $ID MobState; addcomp $ID PlayerMobMover; addcomp $ID PlayerInputMover`
+## Пожалуйста, не надо
+`entities with Item do makeghostrole $ID "$NAME" "You're a random, talking item. What the fuck?"; addcomp $ID MobState; addcomp $ID PlayerMobMover; addcomp $ID PlayerInputMover`
+## Ваше сердце хочет поговорить.
+`entities with Mechanism do makeghostrole $ID "$NAME" "You are some unfortunate soul's $NAME"`
+## Ghostularity
+`entities with Singularity do makeghostrole $ID "Singularity" "FUCK"; addcomp $ID MobState; addcomp $ID MovementIgnoreGravity; addcomp $ID PlayerInputMover; addcomp $ID PlayerMobMover`
+
+# Вероятно, сделает всех несчастными
+## Проклятые шкафчики
+### Проклятые шкафы
+`entities with EntityStorage named ".*closet$|^.*locker" do rmcomp $ID EntityStorage; addcomp $ID CursedEntityStorage`
+### Шкафы с привидениями
+`entities with EntityStorage named ".*closet$|^.*locker" do rmcomp $ID EntityStorage; addcomp $ID CursedEntityStorage; makeghostrole $ID "$NAME" "You're a haunted locker. Consume people."; addcomp $ID MobState; addcomp $ID PlayerMobMover; addcomp $ID PlayerInputMover`
+## Манипуляции с доступом к станции
+### День всеобщего доступа
+`entities with AccessReader do rmcomp $ID AccessReader`
+### Мост со всеобщим доступом на Saltern
+`entities with Airlock named "Bridge" near 6 with Airlock do rmcomp $ID AccessReader`
+## Смена профессий/экипировки
+### День клоуна
+`entities with Mind prototyped MobHuman do setoutfit $ID ClownGear; addcomp $ID Clumsy`
+### Клоунит
+`entities with Clumsy near 1 with Body prototyped MobHuman not with Clumsy do setoutfit $ID ClownGear; addcomp $ID Clumsy`
+### Все, кроме двоих из нас, клоуны, кто же это
+`entities with Mind alive prototyped MobHuman not with Clumsy not select 2 do setoutfit $ID ClownGear; addcomp $ID Clumsy`
+### День мима
+`entities with Mind prototyped MobHuman do setoutfit $ID MimeGear; rmcomp $ID Speech`
+## Контейнеры
+### Удаление чьих-то лёгких
+`entities with Body prototyped MobHuman named "NAME GOES HERE" rchildren named "lungs" do delete $ID`
+или выбросить их на пол:
+`entities with Body prototyped MobHuman named "NAME GOES HERE" rchildren named "lungs" do rmmechanism $ID`
+## Манипуляции со структурой станции
+### Сделать станцию прозрачной
+`entities named ".*wall" do spawn ReinforcedWindow $ID; spawn Grille $ID; spawn CableApcExtension $ID; delete $ID`
+### Electric Avenue
+`entities named ".*wall" do spawn spawn Grille $ID; spawn CableApcExtension $ID`
+
+# Сделать всех несчастными
+## Призыв Бога
+`entities with Body prototyped MobHuman alive select 1 do addcomp $ID Singularity; addcomp $ID MovementIgnoreGravity; godmode $ID`
+## бах
+`entities with MapGrid rchildren do explode $WX $WY 1 1 1 1`
+## бах, но смешнее
+`entities with MapGrid children with Item not anchored do addcomp $ID RoguePointingArrow`

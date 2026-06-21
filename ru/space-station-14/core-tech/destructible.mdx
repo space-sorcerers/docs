@@ -1,0 +1,80 @@
+---
+title: "Destructible"
+---
+
+
+## Как сделать сущность разрушаемой
+Создание разрушаемой сущности делается добавлением компонентов Damageable и Destructible в YAML.
+Компонент Destructible отвечает за определение списка порогов (thresholds), которые она имеет, каждый со своим триггером (когда он активируется) и списком поведений (что происходит при активации).
+
+```yaml
+- type: entity
+  id: Wall
+  name: wall
+  description: Keeps the air in and the greytide out.
+  components:
+  - type: Damageable
+    resistances: metallicResistances
+  - type: Destructible
+    thresholds: # Список порогов, которых может достичь эта сущность
+    # Первый и единственный порог, определяющий триггер и список поведений
+    - trigger: # Триггер этого порога
+        !type:DamageTrigger # Срабатывает при общем количестве урона...
+        damage: 300 # ... равном или превышающем 300
+      behaviors: # Поведения этого порога
+      - !type:SpawnEntitiesBehavior # Первое поведение, создаёт сущности
+        spawn:
+          Girder: # Создать girder...
+            min: 1 # ... минимум 1...
+            max: 1 # ... максимум 1
+      - !type:DoActsBehavior # Второе поведение, активирует список действий
+        acts: ["Destruction"] # В данном случае действие Destruction
+```
+
+## Как добавить новый триггер destructible
+Все триггеры реализуют интерфейс `IThresholdTrigger`.
+Новые можно определить так:
+
+```csharp
+[DataDefinition]
+public partial class DamageTrigger : IThresholdTrigger
+{
+    /// <summary>
+    ///     Количество урона, при котором этот порог сработает.
+    /// </summary>
+    [DataField]
+    public int Damage { get; set; }
+
+    public bool Reached(IDamageableComponent damageable, DestructibleSystem system)
+    {
+        return damageable.TotalDamage >= Damage;
+    }
+}
+```
+
+## Как добавить новое поведение destructible
+Все поведения реализуют интерфейс `IThresholdBehavior`.
+Новые можно определить так:
+
+```csharp
+[DataDefinition]
+public partial class PlaySoundBehavior : IThresholdBehavior
+{
+    /// <summary>
+    ///     Звук, воспроизводимый при разрушении.
+    /// </summary>
+    [DataField]
+    public string Sound { get; set; } = string.Empty;
+
+    public void Execute(IEntity owner, DestructibleSystem system)
+    {
+        if (string.IsNullOrEmpty(Sound))
+        {
+            return;
+        }
+
+        var pos = owner.Transform.Coordinates;
+        SoundSystem.Play(Filter.Pvs(pos), Sound, pos, AudioHelpers.WithVariation(0.125f));
+    }
+}
+```

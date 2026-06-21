@@ -1,0 +1,231 @@
+---
+title: "Перенос Appearance Visualizers"
+---
+
+Как объясняется в [документации по спрайтам](../making-a-sprite-dynamic), Visualizer Systems — это то, как клиентские спрайты изменяются с использованием данных внешнего вида (appearance data) с сервера.
+
+Старый метод заключается в использовании класса, наследующего `AppearanceVisualizer`, который указывается на `AppearanceComponent`. Новый способ — просто использовать компонент для данных, используемых для настройки визуализатора, и систему для фактической логики вместо одного класса. Преимущества в том, что они могут использовать всё, что могут ECS Systems (включая подписки на события, что важно!).
+
+Этот документ объясняет, как мигрировать `AppearanceVisualizer` на новый компонент и систему, используя базовый пример из этого PR: https://github.com/space-wizards-federation/space-station-14/pull/6571/files с некоторыми очень незначительными отклонениями. Директивы using и тому подобное не будут включены, так что вам нужно будет сделать их самостоятельно.
+
+Вот полный визуализатор, который мы переносим:
+
+```csharp
+    [UsedImplicitly]
+    public class ItemCabinetVisualizer : AppearanceVisualizer
+    {
+        [DataField(required: true)]
+        private string _openState = default!;
+
+        [DataField(required: true)]
+        private string _closedState = default!;
+
+        public override void OnChangeData(AppearanceComponent component)
+        {
+            base.OnChangeData(component);
+
+            var entities = IoCManager.Resolve<IEntityManager>();
+            if (entities.TryGetComponent(component.Owner, out SpriteComponent sprite)
+                && component.TryGetData(ItemCabinetVisuals.IsOpen, out bool isOpen)
+                && component.TryGetData(ItemCabinetVisuals.ContainsItem, out bool contains))
+            {
+                var state = isOpen ? _openState : _closedState;
+                sprite.LayerSetState(ItemCabinetVisualLayers.Door, state);
+                sprite.LayerSetVisible(ItemCabinetVisualLayers.ContainsItem, contains);
+            }
+        }
+    }
+```
+
+## 1. Разделите данные и логику
+
+Первая задача — скопировать данные в новый компонент и скопировать логику в новую систему. Не беспокойтесь о полном переносе прямо сейчас или об ошибках, мы сделаем это позже.
+
+Компонент:
+
+```csharp
+    [RegisterComponent]
+    public sealed class ItemCabinetVisualsComponent : Component
+    {
+        [DataField(required: true)]
+        private string _openState = default!;
+
+        [DataField(required: true)]
+        private string _closedState = default!;
+    }
+```
+
+Система:
+
+```csharp
+    public sealed class ItemCabinetVisualizerSystem : VisualizerSystem<ItemCabinetVisualsComponent>
+    {
+        public override void OnChangeData(AppearanceComponent component)
+        {
+            base.OnChangeData(component);
+
+            var entities = IoCManager.Resolve<IEntityManager>();
+            if (entities.TryGetComponent(component.Owner, out SpriteComponent sprite)
+                && component.TryGetData(ItemCabinetVisuals.IsOpen, out bool isOpen)
+                && component.TryGetData(ItemCabinetVisuals.ContainsItem, out bool contains))
+            {
+                var state = isOpen ? _openState : _closedState;
+                sprite.LayerSetState(ItemCabinetVisualLayers.Door, state);
+                sprite.LayerSetVisible(ItemCabinetVisualLayers.ContainsItem, contains);
+            }
+        }
+    }
+```
+
+## 2. ECS-ификация данных
+
+Теперь нам нужно преобразовать компонент в надлежащее состояние ECS!
+
+1) Сделать все приватные поля публичными
+2) Удалить любые свойства и использовать только поля напрямую; любая логика должна быть в методах-членах системы
+3) Изменить имена всех полей в соответствии с соглашениями об именовании
+4) Добавить дополнительные поля данных при необходимости
+5) Переместить соответствующий enum `VisualLayers`, если он существует, также в класс компонента
+
+Теперь это будет выглядеть так:
+
+```csharp
+    [RegisterComponent]
+    public sealed class ItemCabinetVisualsComponent : Component
+    {
+        [DataField(required: true)]
+        public string OpenState = default!;
+
+        [DataField(required: true)]
+        public string ClosedState = default!;
+    }
+```
+
+## 3. ECS-ификация логики
+
+Логику нужно перенести двумя способами:
+- Метод `OnAppearanceChange` необходимо преобразовать в соответствующее переопределение entity system
+- Любой метод `InitializeEntity` необходимо преобразовать в новый обработчик события `ComponentInit`, направленный на созданный вами компонент
+
+Нужно сделать ещё кое-что:
+- Все зависимости должны быть перемещены в систему
+- Все ручные resolve должны быть преобразованы в зависимости
+- Все resolve `IEntityManager` должны использовать поле `EntityManager`, которое уже существует в `EntitySystem`, или прокси-методы
+- Все TryGet для `SpriteComponent` должны использовать поле `Sprite` в аргументах события
+- Все ссылки на поля, которые раньше были на визуализаторе, необходимо преобразовать в ссылки на поля компонента
+
+Этот пример требует только первого, но я позже покажу пример второго.
+
+Сигнатура изменения внешнего вида теперь: `protected override void OnAppearanceChange(EntityUid uid, T component, ref AppearanceChangeEvent args)`, поэтому мы обновим функцию соответствующим образом.
+
+Нам также нужно удалить resolve `IEntityManager` и преобразовать вызовы к нему в прокси-методы. Однако, поскольку используемые вызовы методов нужны только для получения `SpriteComponent`, мы можем использовать поле в аргументах события.
+
+```csharp
+    public sealed class ItemCabinetVisualizerSystem : VisualizerSystem<ItemCabinetVisualsComponent>
+    {
+        public override void OnChangeData(EntityUid uid, ItemCabinetVisualsComponent component, ref AppearanceChangeEvent args)
+        {
+            if (args.Sprite != null)
+                && component.TryGetData(ItemCabinetVisuals.IsOpen, out bool isOpen)
+                && component.TryGetData(ItemCabinetVisuals.ContainsItem, out bool contains))
+            {
+                var state = isOpen ? component.OpenState : component.ClosedState;
+                args.Sprite.LayerSetState(ItemCabinetVisualLayers.Door, state);
+                args.Sprite.LayerSetVisible(ItemCabinetVisualLayers.ContainsItem, contains);
+            }
+        }
+    }
+```
+
+Этот пример не использует `InitializeEntity`, но если бы использовал, полный класс выглядел бы так:
+
+```csharp
+    public sealed class ItemCabinetVisualizerSystem : VisualizerSystem<ItemCabinetVisualsComponent>
+    {
+        public override void Initialize()
+        {
+            base.Initialize(); // this is very important! need it this time
+
+            SubscribeLocalEvent<ItemCabinetVisualsComponent, ComponentInit>(OnComponentInit);
+        }
+
+        private void OnComponentInit(Entity<ItemCabinetVisualsComponent> ent, ref ComponentInit args)
+        {
+            // behavior!
+        }
+
+        protected override void OnChangeData(EntityUid uid, ItemCabinetVisualsComponent component, ref AppearanceChangeEvent args)
+        {
+            if (args.Sprite != null
+                && component.TryGetData(ItemCabinetVisuals.IsOpen, out bool isOpen)
+                && component.TryGetData(ItemCabinetVisuals.ContainsItem, out bool contains))
+            {
+                var state = isOpen ? component.OpenState : component.ClosedState;
+                args.Sprite.LayerSetState(ItemCabinetVisualLayers.Door, state);
+                args.Sprite.LayerSetVisible(ItemCabinetVisualLayers.ContainsItem, contains);
+            }
+        }
+    }
+```
+
+## 4. Обновите YAML и IgnoredComponents.cs
+
+Теперь нам нужно обновить YAML для нашего нового компонента, а также список игнорируемых сервером компонентов.
+
+Перейдите в `Content.Server/Entry/IgnoredComponents.cs` и добавьте строку с именем вашего нового компонента следующим образом:
+
+```csharp
+        public static string[] List => new [] {
+            ... snip ...
+            "ItemCabinetVisuals",
+        };
+ ```
+
+Это делается автоматически для серверных компонентов, которых не существует на клиенте, но не наоборот, так как это обычно более редкая операция, и вы не можете сделать и то, и другое. Так что это просто говорит серверу не беспокоиться о том, что он видит этот компонент в YAML.
+
+Найдите использования старого визуализатора с помощью CTRL+SHIFT+F или эквивалента в любой IDE:
+
+ ```yaml
+     - type: Appearance
+      visuals:
+        - type: ItemCabinetVisualizer
+          openState: open
+          closedState: closed
+```
+
+Замените это следующим образом:
+
+ ```yaml
+     - type: Appearance
+     - type: ItemCabinetVisuals
+       openState: open
+       closedState: closed
+```
+
+**Важно оставить компонент Appearance на месте!** Легко пропустить баг. По сути, просто уменьшите отступ для блока visuals и измените имя компонента.
+
+Готово!
+
+## 5. Если возможно, обобщите
+
+Вместо добавления множества отдельных систем и компонентов визуализаторов часто можно сделать визуализатор более общим, добавив дополнительное YAML-поле данных. Для этого существует `GenericVisualizerSystem` и компонент, который заменяет старый `GenericEnumVisualizer`. Если всё, что вам нужно от визуализатора, — это установить некоторые данные слоя спрайта на основе простых записей данных внешнего вида, вы, скорее всего, можете и должны использовать generic visualizer вместо создания собственного. Однако если вам нужно делать что-то необычное, например, использовать анимации или более сложную логику, вам всё равно придётся создавать свой собственный.
+
+Например, функциональность вышеуказанного визуализатора шкафа просто устанавливает состояния и видимость слоя спрайта на основе двух записей данных внешнего вида. Вместо этой системы и компонента та же функциональность может быть достигнута с использованием generic visualizer:
+```yaml
+     - type: Appearance
+     - type: GenericVisualizer
+       visuals:
+         enum.ItemCabinetVisuals.IsOpen: # <- Appearance data key. Either an enum or a general string.
+           enum.ItemCabinetVisualLayers.Door: # <- sprite layer key. Either an enum or a general string.
+            True: # <- Appearance data value
+              state: open # <- Sprite layer data that should be used for this appearance value
+            False: { state: closed } # <- You can also inline yaml, which can reduce indentation and improve readability.
+         # and then again for the other appearance entry:
+         enum.ItemCabinetVisuals.ContainsItem:
+           enum.ItemCabinetVisualLayers.ContainsItem:
+             True: { visible: true}
+             False: { visible: false}
+```
+Данные слоя спрайта могут устанавливать `sprite`, `state`, `texture`, `shader`, `scale`, `rotation`, `offset`, `visible` и `color`.
+Обратите внимание, что YAML для значений внешнего вида — это просто результаты `ToString()` значений данных внешнего вида.
+Таким образом, `bool` становятся "True"/"False", а enum, такой как `VentPumpState.Off`, просто становится "Off".

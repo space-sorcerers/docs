@@ -1,0 +1,94 @@
+---
+title: "Материалы по OAuth"
+---
+
+Хаб аутентификации SS14 реализует OAuth2 и OpenID Connect. Это позволяет использовать функцию «войдите с помощью вашей учётной записи Space Station 14». Поддержка всего этого реализована через IdentityServer4 (слава богам).
+
+![log-in-with-ss14.png](/images/hosting-log-in-with-ss14.png)
+
+Это используется [официальным форумом](https://forum.ss14.io), [официальной вики](https://wiki.ss14.io) и панелью SS14.Admin, чтобы людям было легко входить в систему с одной и той же учётной записью везде. Я очень доволен тем, как хорошо это работает.
+
+OAuth-приложения привязываются к учётной записи SS14 и могут быть созданы [здесь](https://account.spacestation14.com/Identity/Account/Manage/Developer).
+
+Некоторая информация, которую вам может быть полезно знать (это повторяется на странице управления приложениями):
+* Authority: https://account.spacestation14.com/
+* OIDC config: https://account.spacestation14.com/.well-known/openid-configuration
+* Разрешённый поток авторизации: Authorization code (неявный и т.д. не разрешены)
+* Доступные scope: `openid`, `profile`, `email`.
+
+В зависимости от библиотеки, которую вы используете для реализации поддержки OIDC, возможно, придётся отключить «require PKCE». Например, библиотека PHP, используемая MediaWiki, не поддерживает это, поэтому вам придётся отключить эту опцию.
+
+Обратите внимание, что некоторые из этих ограничений (например, отсутствие неявного grant) не являются техническими. У IdentityServer4 есть [*тонна*](https://github.com/space-wizards-federation/SS14.Web/blob/618802153e91d258f7b99a9165e0990ca0c59d30/SS14.Web/Areas/Admin/Pages/Clients/Client.cshtml.cs#L46-L99) кнопок и настроек, которые мы можем изменить при необходимости. Если вам нужно что-то, что недоступно в текущем меню создания OAuth-приложений, сообщите нам.
+
+<Info>
+Если вы получаете ошибки при попытке протестировать вход, убедитесь, что вся информация указана правильно (**особенно redirect URI, проверьте его с помощью вкладки Network в браузере**)
+
+Мы можем предоставить более подробную помощь по ошибкам по запросу.
+</Info>
+
+<Warning>
+IdentityServer4 по умолчанию довольно ограничителен в отношении поддерживаемых алгоритмов подписи. Это проблема для таких систем, как **PHP/MediaWiki**, поскольку OpenID-Connect-PHP в настоящее время не поддерживает `ES256`. Сейчас вы не можете изменить этот параметр самостоятельно.
+
+Мы можем изменить это вручную через панель управления хабом (см. примечание о настройках выше), так что если это проблема для вас, сообщите нам.
+
+См. соответствующий issue: https://github.com/space-wizards-federation/SS14.Web/issues/11
+</Warning>
+
+## Пример конфигурации
+
+### MediaWiki
+
+<Warning>
+Использование MediaWiki в настоящее время требует некоторой ручной настройки на серверной части, которую вы не можете сделать самостоятельно. Пожалуйста, напишите в `#hosting`, чтобы это настроили.
+</Warning>
+
+Сначала убедитесь, что у вас установлены расширения [`PluggableAuth`](https://www.mediawiki.org/wiki/Extension:PluggableAuth) и [`OpenIDConnect`](https://www.mediawiki.org/wiki/Extension:OpenID_Connect). Обратитесь к документации MediaWiki по установке расширений.
+
+Создайте OAuth-приложение на нашем сайте со следующими параметрами:
+
+* Application name: Что-то понятное, чтобы пользователи могли распознать.
+* Authorization callback URL: Страница «`Special:PluggableAuthLogin`» на вашей вики. Например, поскольку главная страница официальной вики — `https://wiki.spacestation14.io/wiki/Main_Page`, это будет `https://wiki.spacestation14.io/wiki/Special:PluggableAuthLogin`.
+* Homepage URL: Главная страница вашей вики. Например, `https://wiki.spacestation14.io/wiki/Main_Page`
+* Снимите галочку «Require PKCE»
+
+Также сгенерируйте client secret и скопируйте его.
+
+Введите следующее в ваш `LocalSettings.php` в вашей установке MediaWiki и замените необходимые значения:
+
+```php
+wfLoadExtension( 'PluggableAuth' );
+wfLoadExtension( 'OpenIDConnect' );
+
+$wgPluggableAuth_Config[] = [
+        'plugin' => 'OpenIDConnect',
+        'data' => [
+                'providerURL' => 'https://account.spacestation14.com/',
+                'clientID' => 'e584f64f-d0f9-4b15-9714-1233bc4c55a4', // Замените на ваш client ID.
+                'clientsecret' => 'foobar', // Замените на ваш client secret.
+                'scope' => [ 'profile', 'email' ]
+        ]
+];
+
+$wgOpenIDConnect_MigrateUsersByUserName=true;
+```
+
+## Устранение неполадок
+
+### Ошибка со стороны аутентификации: «An error occurred while processing your request.»
+
+![Space Station 14 auth error screen just saying "An error occurred while processing your request."](/images/hosting/oauth-error.png)
+
+Это общая ошибка, которая возникает, если конфигурация вашего клиента или приложения нарушена. Примеры того, что может её вызвать:
+
+* Неправильно указанный redirect URI.
+* Приложение сообщает неверный redirect URI из-за неправильной конфигурации.
+* Неверный client secret, указанный в конфигурационном файле.
+* Неверный client ID, указанный в конфигурационном файле.
+* PKCE включён, если клиентская библиотека не поддерживает PKCE.
+* Недопустимые scopes, указанные в клиентской библиотеке.
+
+В настоящее время у нас нет способа предоставить вам чёткие логи о том, *что* именно пошло не так, поэтому лучшее, что вы можете сделать — обратиться за поддержкой, либо через [Форум](https://forum.spacestation14.com/c/general/help/46), либо через `#hosting` в Discord. Если вы обращаетесь за поддержкой, укажите приблизительную временную метку вашей последней попытки, так как «Request ID», который вы видите, в данный момент для нас почти бесполезен.
+
+Однако, судя по опыту, в 95% случаев (и особенно если вы просто хостите что-то вроде [SS14.Admin](./setting-up-ss14-admin), который в остальном должен работать очень легко), ошибка вызвана неправильным redirect URI. Вы можете проверить это самостоятельно, держа открытыми инструменты разработчика браузера при попытке входа, так как redirect URI виден в параметрах запроса:
+
+![Browser dev tools showing login requests, with the redirect URI being underlined in one of them](/images/hosting/oauth-redirect-uri-devtools.png)

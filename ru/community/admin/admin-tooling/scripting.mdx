@@ -1,0 +1,42 @@
+---
+title: "Учебник по скриптингу"
+---
+
+Видели тех администраторов, которые наблюдают, а затем мгновенно становятся меньше или больше, меняют цвет и начинают быстро летать — и всё одновременно? Мы учимся скриптингу, детка.
+
+Скрипт — это последовательность команд, которые вы даёте игре выполнить. Вы можете добавить сколько угодно команд. У скриптов есть множество вариантов использования, и они отлично подходят для автоматизации задач, не требующих правок между использованиями.
+
+Для начала введите %appdata% в строке поиска и прокрутите вниз, чтобы найти Space Station 14. Если вы уже заблудились, путь к директории: \AppData\Roaming\Space Station 14\data. Если вы не на Windows, вам придётся найти эту папку самостоятельно. В любом случае, откройте папку data и создайте текстовый файл (.txt). Подойдёт любое название, но вы будете вводить это имя в консоль, так что убедитесь, что сможете его узнать. Вы можете создавать сколько угодно скриптов. Поместите ваш скрипт в этот файл. Когда у вас будут все нужные команды в скрипте, выполните exec с именем файла, чтобы запустить скрипт. У exec есть автозаполнение.
+
+## Примеры
+### Базовый скрипт aGhost
+Этот скрипт использует toolshed для заполнения ID сущности путём выполнения "self" вначале. Вот "generic username agnostic script" от nikthechampiongr:
+
+> self not prototyped AdminObserver do "aghost"
+> self do "vvwrite entity/$ID/MovementSpeedModifier/BaseSprintSpeed 25"
+> self do "vvwrite entity/$ID/MovementSpeedModifier/BaseWalkSpeed 6"
+> self do "vvwrite entity/$ID/Description \"GHOST GANG!\""
+> self do "vvwrite entity/$ID/Eye/VisibilityMask 7"
+> self do "vvwrite entity/$ID/Ghost/color '#4D7AFF'"
+> self do "addcomp $ID ShowCriminalRecordIcons"
+> self do "addcomp $ID ShowJobIcons"
+> self do "addcomp $ID ShowMindShieldIcons"
+> self do "addcomp $ID ShowSyndicateIcons"
+
+### Превращение в предмет
+Вот скрипт от aquif, который превращает отмеченную сущность в предмет (сущность нужно отметить: right-click > admin > mark):
+
+> marked comp:ensure Item
+> marked comp:ensure MultiHandedItem
+> marked comp:ensure CanEscapeInventory
+
+Для этого скрипта вам нужно добавить размер сущности. Команда меняется в зависимости от типа инвентаря на вашем сервере:
+
+Размер для серверов со списковым инвентарём: > marked do "vvwrite /entity/$ID/Item/Size 120"
+Размер для серверов с сеточным инвентарём: > marked do "vvwrite /entity/$ID/Item/Size Normal" для предмета на 2x2 клетки, или используйте Ginormous, чтобы предмет не помещался в сумки. Изучите компонент Item других предметов для других размеров.
+
+### Сделать всех призраков радужными
+
+Это одна команда, но оформление её в виде скрипта позволяет написать гораздо меньше слов, чем ввод всей команды (пример: exec /RGBALL.txt)
+
+> entities with Ghost comp:ensure RgbLightController comp:ensure PointLight do "vvwrite /entity/$ID/PointLight/Energy 0"

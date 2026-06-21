@@ -1,0 +1,378 @@
+---
+title: "UI и вы"
+---
+
+Или как я научился не волноваться и полюбил Sheetlets.
+
+<Note>
+Система UI в SS14 прошла через несколько итераций, и многие части кодовой базы устарели по сравнению с текущими соглашениями по UI. При использовании существующих UI в качестве справки, пожалуйста, учитывайте возраст кода.
+
+Если вы найдёте код, который не соответствует текущим соглашениям, рефакторинг всегда приветствуется!
+</Note>
+
+Прежде чем узнать, как это делать в SS14, важно понять, как движок обрабатывает UI. Вам следует сначала обратиться к [документации по пользовательскому интерфейсу](../robust-toolbox/user-interface).
+
+Прочитали? Отлично.
+
+## Хорошо, но как сделать его красивым?
+
+### `FancyWindow`
+
+`DefaultWindow` не рекомендуется. Если вы не создаёте собственное окно, в любых обстоятельствах следует использовать `FancyWindow`. У него есть дополнительные свойства, которые интегрируются с SS14 лучше, чем `DefaultWindow`.
+
+Свойство `Stylesheet` позволяет окну получать информацию о стилях из заданного stylesheet. Мы поговорим о stylesheets подробнее позже, но то, какой stylesheet использует данный UI, определяет, какой набор правил стиля применяется к нему. В настоящее время существуют следующие stylesheets:
+
+- `Nanotrasen` — stylesheet по умолчанию. Используется для любых стандартных UI, предназначенных для игроков.
+- `System` — В основном используется для UI администраторов и sandbox (в настоящее время не реализован).
+
+### `StyleClass`
+
+Классы стилей позволяют правилам стиля применять оформление к элементу. Вы можете назначить элементу классы стилей, установив свойство `StyleClasses` в XAML.
+
+`Content.Client/Stylesheets/StyleClass.cs` — это статический класс для определения строк классов стилей, которые могут применяться к любому элементу UI. Это нужно для централизации расположения всех доступных классов стилей, для лёгкости доступа и предотвращения дублирования классов стилей.
+
+Любые классы стилей, которые являются общими / могут использоваться для более чем одного элемента, определяются вверху. Например, класс стиля `positive` влияет на `Button`, `Panel` и `Label`.
+
+Остальные классы стилей определяются для конкретных общих элементов UI. Некоторые распространённые классы стилей:
+
+- `OpenLeft`: Делает кнопку плоской с левой стороны.
+- `OpenRight`: Делает кнопку плоской с правой стороны.
+- `OpenBoth`: Делает кнопку плоской с обеих сторон; квадратной.
+- `LabelSubtext`: Делает Label меньше и более приглушённого цвета.
+- `LabelKeyText`: Делает Label жирным и цвета выделения.
+- `LabelWeak`: Weak — противоположность strong; делает Label более приглушённого цвета.
+
+Их гораздо больше, но если вы хотите точно знать, что делает та или иная метка, достаточно просто посмотреть на использование поля и прочитать определение правила стиля.
+
+<Tip>
+В целом, если вы занимаетесь разработкой UI, я рекомендую использовать IDE Rider. Она потребляет довольно много RAM, но предоставляет автозаполнение в XAML-файлах, множество действительно хороших функций авто-рефакторинга и поиска, а также очень приличную интеграцию с git. Попробуйте!
+
+Я не думаю, что это возможно в VSCode, но если вы разберётесь, оставьте инструкцию здесь.
+</Tip>
+
+## Написание стилей
+
+Этот раздел касается правил стиля. Для большинства UI их редактирование будет излишним, однако вы ВСЕГДА должны предпочитать использовать классы стилей вместо хардкодинга цветов или ресурсов, которые могут быть использованы повторно.
+
+### Да здравствует могучий `Sheetlet`
+
+Важно понимать, что stylesheet — это массивный список всех правил стиля. Вместо того чтобы составлять один гигантский список правил стиля (потому что это было бы нелепо... ха-ха... ха...), обязанность вносить вклад в этот список распределена между множеством Sheetlet. Каждый Sheetlet возвращает небольшой фрагмент правил стиля, который агломерируется в итоговый список в конце.
+
+<Note>
+Раньше все правила стиля были в одном гигантском списке: `StyleNano.cs`, 1600-строчная яма отчаяния, где мечты умирали. Он был настолько огромным, что ломал подсветку синтаксиса в IDE. НЕ допускайте повторения чего-либо подобного.
+</Note>
+
+Существует, в основном, два типа Sheetlet:
+
+- **Общие Sheetlets (Generic Sheetlets)**: Они находятся в `Content.Client/Stylesheets/Sheetlets`. Эти sheetlets касаются общих элементов UI, используемых во многих разных UI, и должны быть написаны обобщённо, чтобы работать с любым stylesheet.
+- **Специфические Sheetlets (Specific Sheetlets)**: Они находятся вместе с файлами `*.xaml`, с которыми они связаны. Эти sheetlets касаются элементов UI, специфичных для одного UI, и должны быть написаны для работы с конкретными sheetlets, с которыми они связаны.
+
+Этот документ позже подробно расскажет о конкретных соглашениях, которым нужно следовать для обоих типов.
+
+Все sheetlets должны иметь атрибут `[CommonSheetlet]`.
+
+<Tip>
+Не забывайте про атрибут `[CommonSheetlet]`.
+</Tip>
+
+### Правила стиля
+
+Правила стиля применяют оформление к XML-элементам, не так уж отличаясь от CSS. Они состоят из селектора, который указывает, на какие элементы влияет это правило стиля, и набора свойств, определяющих оформление для этих элементов. Сначала давайте посмотрим на селекторы, которые фильтруют элементы по нескольким различным признакам:
+
+- `Type`: Тип элемента, на который влияет это правило. Всё, что наследуется от этого типа, также будет подвержено влиянию этого правила.
+- `StyleClasses`: Классы, которые должен иметь элемент, чтобы на него повлияло это правило. Элемент должен иметь все классы, указанные правилом, чтобы на него повлияло это правило. Это задаётся в XML с помощью свойства `StyleClasses`.
+- `StyleIdentifier`: Идентификатор элемента. Это уникальный идентификатор, который можно использовать для нацеливания на конкретный элемент. Он должен использоваться, когда существует только один экземпляр элемента, который нужно стилизовать очень специфическим образом. Элемент может иметь только один идентификатор, который задаётся в XML с помощью свойства `StyleIdentifier`.
+- `PseudoClasses`: Это специальные классы, которые можно использовать для нацеливания на элементы в определённом состоянии. Например, это используется для стилизации кнопок по-разному при наведении или нажатии. Они срабатывают автоматически при взаимодействии пользователя.
+- Элементы также могут быть стилизованы на основе их родительского элемента и всех их свойств стиля. В определении правила стиля это делается с помощью метода `.ParentOf(...)`, который принимает другой селектор, описывающий дочерний элемент, к которому будут применены стили.
+
+Селекторы, задающие больше таких фильтров, являются более «специфичными» и будут иметь приоритет над селекторами, которые менее специфичны. Если вы хотите, чтобы ваше правило стиля переопределяло другие, сделайте его более специфичным.
+
+Любые элементы, соответствующие селектору, затем получат свойства, определённые в правиле стиля. Свойства одинаковы как в C#, так и в XAML.
+
+Для помощи в конструировании этих правил стиля существуют вспомогательные методы, определённые в `Content.Client/Stylesheets/StylesheetHelpers`. Чтобы увидеть это в действии, давайте рассмотрим несколько примеров правил стиля:
+
+```cs
+// you need this using statement to use the helper methods
+using static Content.Client.Stylesheets.Redux.StylesheetHelpers;
+
+var rules =
+[
+    // select any element...
+    E()
+        // ...with the class "negative"
+        .Class(StyleClass.Negative)
+        // ...and set its font color to the text color from the negative palette
+        .FontColor(sheet.NegativePalette.Text),
+
+    // select any `Label`...
+    E<Label>()
+        // ...with the class "LabelHeading"
+        .Class(StyleClass.LabelHeading)
+        // ...and set its font to a bold 16pt font
+        .Font(sheet.BaseFont.GetFont(16, FontKind.Bold))
+        // ...and its font color to the text color from the highlight palette
+        .FontColor(sheet.HighlightPalette.Text)
+
+    // select any `ContainerButton`...
+     E<ContainerButton>()
+        // ...with the class "button"
+        .Class(ContainerButton.StyleClassButton)
+        // ...and the class "ButtonSmall"
+        .Class(StyleClass.ButtonSmall)
+        // ...that is the parent of a `Label`,
+        .ParentOf(E<Label>())
+        // ...and set that `Label`'s font to an 8pt font
+        .Font(sheet.BaseFont.GetFont(8))
+];
+```
+
+Конечно, они способны на гораздо большее. Читайте sheetlets, реализованные в игре, чтобы узнать, как что-то делается!
+
+### Смерть Хардкодингу!
+
+Когда это возможно, избегайте хардкодинга в определениях правил стиля, чтобы сохранить их как можно более переиспользуемыми/широкими. Следующие системы предназначены для помощи в централизации всех определений, и ваши правила стиля должны быть паттернами, которые применяют эти определения.
+
+#### `ColorPalette`
+
+На самом деле существует довольно надёжная (ха-ха) система цветовых палитр, чтобы, надеюсь, сделать хардкодинг цветов ненужным. В классе `Palettes` определён набор общих палитр, и каждый stylesheet использует их для следующих общих палитр, на которые ссылаются sheetlets:
+
+- `PrimaryPalette`: Используется для элементов переднего плана.
+- `SecondaryPalette`: Используется для фоновых элементов.
+- `PositivePalette`: Традиционно зелёная палитра, используемая для обозначения успеха / хорошо / полно.
+- `NegativePalette`: Традиционно красная палитра, используемая для обозначения ошибок / плохо / пусто.
+- `HighlightPalette`: Используется для выделения заголовков или важных элементов.
+
+В C# вы получаете доступ к цветам через свойства класса `ColorPalette`. От самого яркого до самого тёмного, свойства (на момент написания) расположены следующим образом (где меньшие числа темнее):
+
+- `+0`: `Text` `Base`
+- `-1`: `TextDark`, `Element`
+- `-2`: `BackgroundLight`, `PressedElement`
+- `-3`: `Background`
+- `-4`: `BackgroundDark`, `DisabledElement`
+
+Причина, по которой используется такой подход, а не простой массив цветов, — читаемость. Цвета в палитре имеют определённое предназначение, поэтому отражение этого назначения в вашем коде важно для избежания ошибок и делает код чище и читаемее.
+
+Вот визуализация цветов, используемых в палитре `NanotrasenStylesheet`:
+
+![Nanotrasen Color Palette](/images/ss14-by-example/nano-palettes.png)
+
+#### `ISheetletConfig`
+
+`ISheetletConfig` предназначен для сокращения повторяющегося кода путём предоставления общей функциональности и определений между stylesheets. Любой `Sheetlet`, который требует значения из некоторого экземпляра `ISheetletConfig`, должен иметь ограничение обобщённого типа, требующее интерфейс `ISheetletConfig`.
+
+```cs
+[CommonSheetlet] // don't forget `[CommonSheetlet]`!
+public sealed class ExampleSheetlet<T> : Sheetlet<T> where T : PalettedStylesheet, IExampleConfig
+```
+
+`ISheetletConfig` также служит проверкой зависимостей. Когда stylesheets собирают все sheetlets, имеющие `[CommonSheetlet]`, они сначала проверяют, удовлетворяют ли они ограничению типа, прежде чем добавлять правила в stylesheet.
+
+<Info>
+Если sheetlet не удовлетворяет ограничениям типа какого-либо stylesheet, игра выведет ошибку в лог. Если ваши стили не отображаются, возможно, это причина.
+</Info>
+
+#### Доступ к ресурсам
+
+Ресурсы в sheetlets запрашиваются иначе, чем в других частях кодовой базы. Каждый stylesheet предоставляет список директорий (корней) для использования при запросе ресурса (например, корень `TextureResource` в `NanotrasenStylesheet` — `/Textures/Interface/Nano`). Это означает, что любой текстура, запрошенная с помощью `GetTexture`, будет искаться относительно этой директории.
+
+### Общие Sheetlets
+
+Общие sheetlets используются для общих элементов UI, которые используются во многих разных UI. Они сгруппированы в `Content.Client/Stylesheets/Sheetlets`. Вот некоторые соглашения, которым следует руководствоваться при написании общих sheetlets:
+
+- Вы всегда должны выбирать элементы с помощью `.Class`, а не `.Identifier`.
+- При доступе к ресурсам используйте метод `GetTextureOr`, чтобы получить текстуру и указать запасной корень, который будет использован, если текстура не найдена в корнях stylesheet.
+- Избегайте ручного хардкодинга классов. При ссылке на классы вы должны использовать только классы, определённые на стилизуемом элементе (в свойствах `StyleClass*`), или определять свои собственные в `StyleClass.cs`.
+- Если вам нужно получить доступ к ресурсу, который ещё не предоставлен, вы должны добавить путь к соответствующему `ISheetletConfig` или создать новый.
+
+<Accordion title="Пример кода (нажмите, чтобы развернуть)">
+```cs
+using Content.Client.Stylesheets.Redux.SheetletConfigs;
+using Content.Client.Stylesheets.Redux.Stylesheets;
+using Robust.Client.UserInterface;
+using Robust.Client.UserInterface.Controls;
+// you need to add this line manually to access the helper methods
+using static Content.Client.Stylesheets.Redux.StylesheetHelpers;
+
+namespace Content.Client.Stylesheets.Sheetlets;
+
+// MAKE SURE TO INCLUDE THE [CommonSheetlet] ATTRIBUTE
+[CommonSheetlet]
+// define the sheetlet and its dependencies
+public sealed class CheckboxSheetlet<T> : Sheetlet<T> where T : PalettedStylesheet, ICheckboxConfig
+{
+    public override StyleRule[] GetRules(T sheet, object config)
+    {
+        // cast the sheet into any of its required dependencies here
+        ICheckboxConfig checkboxCfg = sheet;
+
+        // get any textures / construct any complicated resources here
+        var uncheckedTex = sheet.GetTextureOr(checkboxCfg.CheckboxUncheckedPath, NanotrasenStylesheet.TextureRoot);
+        var checkedTex = sheet.GetTextureOr(checkboxCfg.CheckboxCheckedPath, NanotrasenStylesheet.TextureRoot);
+
+        // and finally, define all the style rules and return a big 'ol list of them
+        return
+        [
+            E<TextureRect>()
+                .Class(CheckBox.StyleClassCheckBox)
+                .Prop(TextureRect.StylePropertyTexture, uncheckedTex),
+            E<TextureRect>()
+                .Class(CheckBox.StyleClassCheckBox)
+                .Class(CheckBox.StyleClassCheckBoxChecked)
+                .Prop(TextureRect.StylePropertyTexture, checkedTex),
+            E<BoxContainer>()
+                .Class(CheckBox.StyleClassCheckBox)
+                .Prop(BoxContainer.StylePropertySeparation, 10),
+        ];
+    }
+}
+```
+</Accordion>
+
+### Специфические Sheetlets
+
+Специфические sheetlets используются совместно с элементами UI, которые используются лишь несколько раз, чаще всего все в одном UI. Эти sheetlets находятся в той же директории, что и файл `*.xaml`, с которым они связаны.
+
+В целом, эти sheetlets следуют немного другим соглашениям по сравнению с общими sheetlets:
+
+- Вы должны предпочитать выбирать элементы с помощью `.Identifier`, а не `.Class`.
+- Любые стили, которые МОГУТ быть использованы другим UI, должны быть перемещены в общий sheetlet.
+- Хардкодинг допускается более свободно; вы всё равно должны стараться избегать его, когда это возможно, но хардкодинг `StyleIdentifier`-ов, вероятно, нормален.
+- Если вам ДЕЙСТВИТЕЛЬНО нужен специфический ресурс, и нет смысла добавлять его в `ISheetletConfig`, вы можете получить к нему доступ через `ResCache` как обычно.
+- Вам не нужно делать ограничение обобщённого типа, так как sheetlet должен быть специфичен для одного UI, а значит, и для одного stylesheet.
+
+<Accordion title="Пример кода (нажмите, чтобы развернуть)">
+```cs
+using Content.Client.Resources;
+using Content.Client.Stylesheets.Redux;
+using Content.Client.Stylesheets.Redux.SheetletConfigs;
+using Content.Client.Stylesheets.Redux.Stylesheets;
+using Robust.Client.Graphics;
+using Robust.Client.UserInterface;
+using Robust.Client.UserInterface.Controls;
+// you need to add this line manually to access the helper methods
+using static Content.Client.Stylesheets.Redux.StylesheetHelpers;
+
+namespace Content.Client.Paper.UI;
+
+// MAKE SURE TO INCLUDE THE [CommonSheetlet] ATTRIBUTE
+[CommonSheetlet]
+// which stylesheet is this sheetlet for
+public sealed class PaperSheetlet : Sheetlet<NanotrasenStylesheet>
+{
+    public override StyleRule[] GetRules(NanotrasenStylesheet sheet, object config)
+    {
+        // define any IConfigs you need here
+        IWindowConfig windowCfg = sheet;
+
+        // get any textures / construct any complicated resources here
+        var paperBackground = ResCache.GetTexture("/Textures/Interface/Paper/paper_background_default.svg.96dpi.png")
+            .IntoPatch(StyleBox.Margin.All, 16);
+        var paperBox = new StyleBoxTexture
+            { Texture = sheet.GetTexture(windowCfg.TransparentWindowBackgroundBorderedPath) };
+        paperBox.SetPatchMargin(StyleBox.Margin.All, 2);
+
+        // and finally, define all the style rules and return a big 'ol list of them
+        return
+        [
+            E<PanelContainer>().Identifier("PaperContainer").Panel(paperBox),
+            E<PanelContainer>()
+                .Identifier("PaperDefaultBorder")
+                .Prop(PanelContainer.StylePropertyPanel, paperBackground),
+        ];
+    }
+}
+```
+</Accordion>
+
+## Создание собственного Stylesheet
+
+<Note>
+Несколько stylesheets стали возможны только недавно с внедрением системы Sheetlet, поэтому полный спектр возможностей, которые это открывает, ещё не исследован. Если stylesheets будут использоваться интересными способами, помимо смены палитр, пожалуйста, обновите этот раздел!
+</Note>
+
+Создание нового stylesheet не так сложно, как написание всех правил стиля. При хорошо написанных правилах стиля и sheetlets новый stylesheet — это просто определение общих цветов, определений и ресурсов, используемых всеми правилами стиля. В своей простейшей форме новый stylesheet — это просто новая цветовая палитра!
+
+Новые stylesheets следует создавать с намерением передать другой контекст. Например, недиегетический контекст UI администраторов, передаваемый с помощью `SystemStylesheet`.
+
+Цвета для stylesheets определяются с использованием [цветового пространства OKLAB](https://bottosson.github.io/posts/oklab/), перцептивно равномерного цветового пространства. Когда вы выбираете новые цвета для своего stylesheet, может быть полезно использовать [OKLCH Color Picker](https://oklch.com) и изменить существующий цвет.
+
+## Написание C# для UI
+
+> **TODO:** Я недостаточно уверен в своих знаниях, чтобы подробно описать, что делать, а чего не делать. Это всего лишь общий обзор на данный момент, и его следует обновить.
+>
+> Также это, вероятно, должно быть отдельной страницей.
+
+Лучший способ научиться писать код UI — смотреть на существующий код. Некоторые UI, безусловно, делают ужасные вещи, которые никогда не стоит повторять, но в SS14 горы ужасного кода, так что это не является чем-то необычным. Я не могу научить знакомству с внутренностями этой игры, но я могу дать общий обзор.
+
+Код, на который вы можете ссылаться:
+
+- Robotics Console
+- Reagent Dispenser
+- BatteryMenu
+
+У любого UI есть несколько различных частей. Скажем, мы работаем с entity с именем `MyThing`, для которой мы хотим показать UI. Вот, в общем, как будет выглядеть структура:
+
+```yaml
+Content.Server/MyThing/:
+    - Systems/:
+          - MyThingSystem.cs # Inherits from `SharedMyThingSystem.cs`
+            # Takes the messages and makes changes in-world, and takes data from in-world to update the UI state.
+Content.Shared/MyThing/:
+    - Components/:
+          - MyThingComponent.cs # Defines the component for the entity
+    - Systems/:
+          - SharedMyThingSystem.cs # Controls the appearance data and general shared logic
+    - SharedMyThing.cs # Defines the messages that can be sent between server and client, and the UI state
+
+Content.Client/MyThing/:
+    - Ui/:
+          - MyThingWindow.xaml # The main window, where the main structure of the UI is defined
+          - MyThingWindow.xaml.cs # Defines behavior for `MyThingWindow.xaml`, reading in inputs and calling `Action`s
+          - MyThingBoundUserInterface.cs # Interfaces with the server, sending messages and updating the UI state
+    - Systems/:
+          - MyThingSystem.cs # Inherits from `SharedMyThingSystem.cs`
+            # Takes appearance data and makes in-world changes to reflect that
+```
+
+### Bound User Interfaces
+
+> **TODO:** кто-то более знакомый с BUI, чем я, должен написать о том, как писать хорошие BUI. Я просто вставлю заметки из `#codebase-changes` от Bard в дискорде:
+>
+> > Predicted BUIs are in:
+>
+> Для передачи данных по сети:
+>
+> Вариант 1 (Предпочтительный). Переместите состояние BUI в component states. Используйте существующую клиентскую систему / создайте новую для обработки обновления BUI при обновлении состояния (используйте TryGetOpenUi) и при вызове Open в BoundUserInterface. См. JukeboxSystem в качестве примера, например
+>
+> ```cs
+> private void OnJukeboxAfterState(Entity<JukeboxComponent> ent, ref AfterAutoHandleStateEvent args)
+> {
+>     if (!_uiSystem.TryGetOpenUi<JukeboxBoundUserInterface>(ent.Owner, JukeboxUiKey.Key, out var bui))
+>         return;
+>
+>     bui.Reload();
+> }
+> ```
+>
+> Вариант 2. Сделайте элемент управления BUI заглушкой до получения состояния.
+>
+> Для UI: вызывайте TryOpenUi в shared, где это возможно, и клиент должен просто обработать это. Вызов с сервера также будет работать, как и раньше.
+>
+> Для сообщений: используйте SendPredictedMessage, где это возможно, в BUI. В какой-то момент это, вероятно, станет поведением по умолчанию вместо SendMessage.
+>
+> В целом: предпочитайте использовать перегрузки, принимающие EntityUid вместо ICommonSession — это упростит программирование NPC, которые смогут взаимодействовать с UI в будущем.
+>
+> >
+>
+> - Существует вспомогательный метод `this.CreateWindow<TWindow>()` для BUI, который обрабатывает удаление + открытие + подписку на закрытие за вас.
+> - Существует метод OnProtoReload, который вызывается на BUI, так что вы можете переопределить его и обработать без необходимости вручную подписываться на другой системе.
+> - Я добавил поддержку перезагрузки прототипов для некоторых вещей.
+> - Я почистил много кода BUI. Windows теперь просто вызывают события, а сам BUI обрабатывает отправку сообщений.
+>
+> Некоторые заметки на будущее:
+>
+> - Вы должны создавать / удалять control entities внутри EnteredTree и ExitedTree, а не внутри Dispose.
+> - Элементы управления должны иметь возможность быть созданными с пустым конструктором и не должны вызывать методы BUI напрямую. Это значительно упрощает повторное использование.
+> - Все новые элементы управления должны обрабатывать перезагрузку прототипов, если это применимо.
+> - Все новые элементы управления должны предпочитать использование component states, а не BUI states, где это возможно. Они лучше работают с prediction и проще в использовании.
+> - Элементы управления должны уметь обрабатывать исчезновение компонентов и не полагаться на `GetComponent&lt;T&gt;` везде, так как нет гарантии, что компонент существует.

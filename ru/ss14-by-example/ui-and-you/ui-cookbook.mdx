@@ -1,0 +1,36 @@
+---
+title: "UI Cookbook"
+---
+
+Этот раздел касается распространённых паттернов UI, которые вы, возможно, захотите реализовать самостоятельно.
+
+<Note>
+Если вы разобрались с чем-то хитрым в UI или просто хотите сообщить людям о чём-то, что вы сделали, подумайте о том, чтобы поделиться ценным опытом и добавить это сюда!
+</Note>
+
+## Цвета статуса
+
+`Palettes.Status` позволяет показать статус чего-либо с помощью цвета (красный = плохо, янтарный = нормально, зелёный = хорошо). Вам просто нужно передать число от 0 до 1, и оно смешает цвета (используя модное OKLAB-смешивание!!).
+
+```cs
+Palettes.Status.GetStatusColor(0.0f); // red
+Palettes.Status.GetStatusColor(0.5f); // amber
+Palettes.Status.GetStatusColor(1.0f); // green
+
+Palettes.Status.GetStatusColor(0.25f); // blends between red and amber
+```
+
+## Несколько классов стилей
+
+Чтобы добавить несколько классов стилей к элементу в его XAML-файле, требуется дополнительный шаблонный код:
+
+```xml
+<Control xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <Button Text="delete">
+        <Button.StyleClasses>
+            <sys:String>ButtonSmall</sys:String>
+            <sys:String>negative</sys:String>
+        </Button.StyleClasses>
+    </Button>
+</Control>
+```

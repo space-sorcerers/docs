@@ -1,0 +1,30 @@
+# Progress Report Creation
+*Краткое руководство по созданию progress report.*
+
+### Контрольный список
+- Установите явные дату начала и окончания вкладов, которые хотите осветить.
+- Создайте доску Trello на основе шаблона Progress Report Trello Template.
+- Запустите [инструмент](https://github.com/space-wizards-federation/github2trello) для генерации карточек Trello по каждому Pull Request в Content/Engine. Обратите внимание, что PR в Content без changelog будут пропущены.
+- Организуйте карточки по колонкам на ваше усмотрение.
+- Напишите описания для каждой карточки.
+- Объедините содержимое карточек в markdown-файл на основе шаблона Progress Report Markdown Template, не забудьте обновить номер PR.
+- Попросите у PJB список Patrons.
+- Добавьте список контрибьюторов (см. ниже).
+- Замените/удалите имена, как указано [здесь](https://github.com/space-wizards-federation/space-station-14/blob/master/Tools/contribs_shared.ps1).
+- Поместите markdown-файл в `website-content/content/post`. Изображения — в новую директорию `website-content/static/images/post/pr_[number]`, видео — в новую директорию `website-content/static/video/pr_[number]`.
+- Создайте PNG и MP4 для каждого раздела, где они нужны.
+- Запустите [этот скрипт](https://github.com/space-wizards-federation/website-content/blob/master/Tools/pr-image-convert.ps1) в директории со всеми PNG. Требуется [ImageMagick](https://imagemagick.org/index.php) и [optipng](http://optipng.sourceforge.net/).
+- Создайте миниатюру (800x450) PNG и поместите её в `website-content/assets/images/thumbnails`.
+- Создайте pull request в [репозиторий website](https://github.com/space-wizards-federation/website-content). Дайте всем возможность просмотреть его в течение пары дней, затем смержите одновременно с публикацией.
+
+### Источники данных
+- Список всех контрибьюторов командой: `git shortlog -s -n --since=<start> --until=<end>`.
+- Количество коммитов: `git rev-list --count master --since=<start> --until=<end>`.
+
+### Места для публикации
+- Сайт. Публикуется автоматически после мержа pull request в `website-content`.
+- Steam (напишите PJB или Smug).
+- Discord.
+- Patreon (напишите PJB).
+- Reddit (r/ss13, r/ss14, & r/linux_gaming).
+- Twitter (напишите PJB или Smug).

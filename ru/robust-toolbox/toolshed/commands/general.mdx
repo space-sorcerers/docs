@@ -1,0 +1,244 @@
+---
+title: "Общие"
+---
+
+## Sources
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>iota</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`T -> IEnumerable<T> where T: INumber<T>`
+</div>
+</div>
+Возвращает <code>1..N</code>
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>to &lt;dest&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`T -> IEnumerable<T> where T: INumber<T>`
+</div>
+</div>
+Возвращает <code>N..M</code>
+
+## Filters
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>where &lt;block (T -> bool)&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Фильтрует входные данные по указанному блоку кода.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>unique</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Фильтрует входные данные по уникальности, удаляя дублирующиеся значения.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>take &lt;amount&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Удаляет N значений из входа, отбрасывая остальные.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>select &lt;quantity&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Случайным образом выбирает указанное количество (число или процент) значений из входа, отбрасывая остальные.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>sort</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Сортирует входные данные от меньшего к большему.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>sortby &lt;block (T -> TOrd)&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Сортирует входные данные от меньшего к большему, используя указанное значение упорядочивания.
+
+```
+    entities sortby { allcomps count }
+```
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>sortmapby &lt;block (T -> TOrd)&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Сортирует входные данные от меньшего к большему, используя указанное значение упорядочивания, возвращая значения упорядочивания.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>sortdown</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Сортирует входные данные от большего к меньшему.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>sortdownby &lt;block (T -> TOrd)&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Сортирует входные данные от большего к меньшему, используя указанное значение упорядочивания.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>sortmapdownby &lt;block (T -> TOrd)&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Сортирует входные данные от большего к меньшему, используя указанное значение упорядочивания, возвращая значения упорядочивания.
+
+## Transforms
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>isempty</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> bool`
+</div>
+</div>
+Возвращает true, если вход пуст, иначе false.
+Эту команду можно инвертировать с помощью `not`.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>isnull</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`object? -> bool`
+</div>
+</div>
+Возвращает true, если вход равен null, иначе false.
+Эту команду можно инвертировать с помощью `not`.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>count</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> int`
+</div>
+</div>
+Подсчитывает количество значений во входе.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>iterate &lt;block (T -> T)&gt; &lt;times&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IEnumerable<T>`
+</div>
+</div>
+Повторяет указанный блок кода N раз над его собственным выводом, по сути `f(f(...N f(x)))`
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>first</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> T`
+</div>
+</div>
+Возвращает первое значение во входе или выдаёт ошибку, если его нет.
+
+## Mutators
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>rep &lt;amount&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`T -> IEnumerable<T>`
+</div>
+</div>
+Повторяет входное значение N раз.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>bin</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<T> -> IDictionary<T, int>`
+</div>
+</div>
+Подсчитывает количество вхождений каждого уникального экземпляра T во входе, возвращая словарь уникальных экземпляров: количество.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>map &lt;block (TIn -> TOut)&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<TIn> -> IEnumerable<TOut>`
+</div>
+</div>
+Применяет указанный блок кода к каждому элементу входа.
+
+<div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+<div>
+<h3>reduce &lt;block (T -> T)&gt;</h3>
+</div>
+<div style={{textAlign: "right"}}>
+
+`IEnumerable<TIn> -> T`
+</div>
+</div>
+Свёртывает вход, по сути `f(x1, f(x2, ...f(xn-1, xn)))`

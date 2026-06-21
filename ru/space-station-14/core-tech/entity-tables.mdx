@@ -1,0 +1,205 @@
+---
+title: "Entity Tables"
+---
+
+
+**Entity tables** — это мощный способ определения сущностей для заполнения контейнеров и спавнеров.
+Система состоит из рекурсивных наборов селекторов, каждый из которых может определять пользовательское поведение для выбора сущностей.
+
+## Использование
+
+Вы можете получить спавны из таблицы, используя `EntityTableSystem.GetSpawns`.
+Этот вызов функции принимает только `EntityTableSelector` с необязательным параметром для `System.Random`, что позволяет использовать детерминированные приложения.
+
+На момент написания этого руководства EntityTables в основном поддерживаются двумя компонентами: `EntityTableContainerFillComponent` и `EntityTableSpawnerComponent`.
+
+`EntityTableContainerFillComponent` служит прямой заменой `ContainerFillComponent`.
+Он использует тот же общий синтаксис, за исключением замены списка `EntitySpawnEntry` на `EntityTableSelector`.
+
+Аналогично, `EntityTableSpawnerComponent` является заменой `RandomSpawnerComponent`.
+Однако они не имеют одинаковых переменных.
+Эта версия поддерживает только таблицу и смещение, а не отдельные списки и переменную шанса старой системы.
+Тот же эффект может быть достигнут с помощью вложенных `GroupSelector` с общим определением `prob` и `weights`, соответствующими предыдущим шансам.
+
+### Пример Синтаксиса
+
+<Warning title="Указание Типа">
+При написании EntityTables вы должны использовать синтаксис `!type:[Имя Класса]` при указании селектора.
+
+Исключением является `EntSelector`.
+Простое указание ID заставит линтер предполагать, что указанный селектор является EntitySelector.
+Это значительно сокращает yaml для больших таблиц.
+</Warning>
+
+Вот переиспользуемый прототип entity table:
+```yaml
+- type: entityTable
+  id: LockFillTable
+  table: !type:AllSelector # <-- Это означает, что будут выбраны все дочерние элементы
+    children:
+    - id: ClothingMaskBreath # <-- Это просто одиночный экземпляр сущности
+    - !type:GroupSelector # <-- Это означает, что будет выбран только один из дочерних элементов
+      children:
+      - id: EmergencyOxygenTankFilled # <-- Все селекторы имеют вес по умолчанию 1
+      - id: OxygenTankFilled
+        weight: 2 # <-- Это означает, что этот элемент будет выбран в два раза чаще
+    - id: ToolboxEmergencyFilled
+      prob: 0.5 # <-- Это означает, что есть 50% шанс, что этот селектор будет использован.
+```
+
+Вот пример, встроенный в прототип сущности:
+```yaml
+- type: entity
+  id: ClosetFilled
+  components:
+  - type: EntityTableContainerFill
+    containers:
+      entity_storage: !type:AllSelector
+        children:
+        - !type:NestedSelector # <-- Это рекурсивно вызовет GetSpawns на EntityTablePrototype
+          tableId: LockFillTable
+        - id: ClothingMaskGas
+          amount: !type:ConstantNumberSelector # <-- Это выберет ровно 3 указанных сущности
+            value: 3
+        - id: StrangePill
+          amount: !type:RangeNumberSelector # <-- Это выберет от 2 до 6 (включительно с обеих сторон) указанных сущности
+            range: 2, 6
+```
+
+## EntityTableSelectors
+
+### Общие Переменные
+
+Все EntityTableSelectors имеют следующие переменные:
+
+- **Rolls:** Количество раз, которое выполняется данный селектор.
+`Prob` шансы будут проверяться для каждого броска
+- **Weight:** Вес, используемый для определения того, какой селектор будет выбран в `GroupSelector`
+- **Prob:** Простая вероятность, используемая для определения, выполняется ли селектор.
+От 0 до 1
+
+### EntSelector
+
+- **Id:** ID EntityPrototype, который вы хотите выбрать.
+Обязателен.
+- **Amount:** `NumberSelector`, соответствующий тому, сколько `Id` вы хотите выбрать.
+По умолчанию 1, если ничего не указано.
+
+EX:
+```yml
+root:
+- id: PlushieLizard
+  amount: !type:ConstantNumberSelector
+    value: 5
+    
+# или
+
+root: !type:EntSelector
+- id: PlushieLizard
+  amount: !type:ConstantNumberSelector
+    value: 5
+```
+
+### NoneSelector
+
+Ничего не возвращает.
+Может использоваться вместе с `GroupSelector` для вероятности.
+
+EX:
+```yml
+containers:
+- storage: !type:NoneSelector
+```
+
+### AllSelector
+
+`AllSelector` позволяет базовый контроль при выборе списка селекторов, которые вы хотите использовать вместе.
+
+- **Children:** Список других EntityTableSelectors, которые будут выбраны.
+
+EX:
+```yml
+root: !type:AllSelector
+  children:
+  - id: PlushieLizard
+  - id: ClothingMaskGas
+```
+
+### GroupSelector
+
+`GroupSelector` служит заменой OrGroup из EntitySpawnEntry.
+Поскольку выбирается только один из дочерних элементов, обычным использованием является вложение нескольких GroupSelector друг в друга для настройки шанса выбора предмета без явного вычисления весов.
+
+Аналогично, EntityTable с GroupSelector в качестве корня может использоваться как общий пул.
+Это делает выбор нескольких предметов из пула таким же простым, как увеличение значения `Rolls`.
+
+- **Children:** Список других EntityTableSelectors, один из которых будет выбран на основе шанса и значения `Weight` селектора
+
+EX:
+```yml
+root: !type:GroupSelector
+  children:
+  - id: PlushieNar
+  - id: PlushieRatvar
+```
+
+### NestedSelector
+
+`NestedSelector` существует в основном для уменьшения дублирования yaml.
+Поскольку таблица (или часть таблицы) может быть указана как прототип, использование этого позволяет ссылаться на неё несколько раз во многих местах.
+
+- **TableId:** Строковый ID EntityTableSelector.
+
+EX:
+```yml
+- type: entityTable
+  id: test
+  table: !type:GroupSelector
+    children:
+    - id: PlushieLizard
+    - id: PlushieNar
+    - id: PlushieRatvar
+
+- type: entity
+  id: PlushSpawner
+  components:
+  - type: EntityTableSpawner
+    table: !type:NestedSelector
+      tableId: test
+```
+
+## ValueSelectors
+
+### NumberSelectors
+
+`NumberSelector` — это просто общий способ указания числового значения для различных селекторов.
+
+#### ConstantNumberSelector
+
+- **Value:** Возвращает указанное значение.
+
+EX:
+```yml
+amount: !type:ConstantNumberSelector
+  value: 4
+```
+
+#### RangeNumberSelector
+
+- **Range:** Возвращает значение в указанном диапазоне (включительно с обеих сторон)
+
+EX:
+```yml
+rolls: !type:RangeNumberSelector
+  range: 6, 2019
+```
+
+## Пользовательские Селекторы
+
+Чтобы реализовать пользовательский селектор entity table, создайте новый класс, наследующий от `EntityTableSelector`.
+Затем просто переопределите `GetSpawns(System.Random, IEntityManager, IPrototypeManager)` и создайте свою реализацию.
+
+Вы можете добавлять любые поля данных в класс, но не можете использовать внедрение зависимостей для добавления систем.
+Если вы хотите вызвать Manager или System, самый простой способ — создать новый `EntitySystem` с публичным API, обрабатывающим выбор, затем получить систему через предоставленный `IEntityManager`.
+
+NumberSelectors работают так же, просто используя `NumberSelector` вместо `EntityTableSelector`.
